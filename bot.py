@@ -297,7 +297,7 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
       f"• Срочность: <b>{urgency}</b>\n\n"
       "━━━━━━━━━━━━━━━━━━━\n"
       "💳 <b>БЛОК ОПЛАТЫ</b>\n"
-      "• <b>Сумма к оплате:</b> 600$\n"
+      "• <b>Сумма к оплате:</b> 400$\n"
       "• <b>Валюта / Сеть:</b> USDT (TRC20)\n"
       "• <b>Реквизиты для оплаты:</b>\n"
       "<code>TCRbjQUidQfszDWEMnyWQVUscRj7CoqRTn</code>\n\n"
