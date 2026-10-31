@@ -13,7 +13,7 @@ from aiogram.types import (
     InlineKeyboardMarkup,
     Message,
 )
-from aiohttp import web
+from aiohttp import ClientSession, web
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -48,6 +48,55 @@ class OrderForm(StatesGroup):
 USER_ORDERS = {}
 
 router = Router()
+
+
+# === СЛОВАРЬ ВАЛЮТ ДЛЯ СТРАН ===
+COUNTRY_CURRENCIES = {
+    "Украина": {"code": "UAH", "symbol": "грн."},
+    "Россия": {"code": "RUB", "symbol": "руб."},
+    "Беларусь": {"code": "BYN", "symbol": "byn"},
+    "Казахстан": {"code": "KZT", "symbol": "тңг."},
+    "Молдова": {"code": "MDL", "symbol": "лей"},
+    "Узбекистан": {"code": "UZS", "symbol": "сум"},
+    "Кыргызстан": {"code": "KGS", "symbol": "сом"},
+    "Таджикистан": {"code": "TJS", "symbol": "сом."},
+    "Грузия": {"code": "GEL", "symbol": "lari"},
+    "Армения": {"code": "AMD", "symbol": "драм"},
+}
+
+
+# === ФУНКЦИЯ ПОЛУЧЕНИЯ РЕАЛЬНЫХ КУРСОВ ВАЛЮТ ===
+async def get_exchange_rate(target_currency: str) -> float:
+  """Получает актуальный курс USD к целевой валюте из публичных API."""
+  url = f"https://open.er-api.com/v6/latest/USD"
+  try:
+    async with ClientSession() as session:
+      async with session.get(url, timeout=5) as response:
+        if response.status == 200:
+          data = await response.json()
+          rates = data.get("rates", {})
+          if target_currency in rates:
+            return float(rates[target_currency])
+  except Exception as e:
+    logger.warning(
+        f"Не удалось получить курс для {target_currency}: {e}. Используем"
+        " резервные значения."
+    )
+
+  # Резервные средние курсы на случай недоступности API
+  fallback_rates = {
+      "UAH": 41.5,
+      "RUB": 95.0,
+      "BYN": 3.3,
+      "KZT": 480.0,
+      "MDL": 18.0,
+      "UZS": 12600.0,
+      "KGS": 89.0,
+      "TJS": 10.9,
+      "GEL": 2.7,
+      "AMD": 390.0,
+  }
+  return fallback_rates.get(target_currency, 1.0)
 
 
 # === ФУНКЦИЯ ДЛЯ ГЕНЕРАЦИИ РЕПУТАЦИИ (РАСТЕТ ЕЖЕДНЕВНО) ===
@@ -470,7 +519,16 @@ async def process_country(callback: CallbackQuery, state: FSMContext):
   }
   selected = names.get(c_code, c_code)
 
-  await state.update_data(country=selected)
+  # Сохраняем страну и привязываем валюту
+  curr_info = COUNTRY_CURRENCIES.get(
+      selected, {"code": "USD", "symbol": "USD"}
+  )
+  await state.update_data(
+      country=selected,
+      curr_code=curr_info["code"],
+      curr_symbol=curr_info["symbol"],
+  )
+
   await state.set_state(OrderForm.city)
   await callback.message.edit_text(
       f"<b>Шаг 4 из 7: Город</b>\n\nВыбрано: <b>{selected}</b>\n\nВведите"
@@ -598,6 +656,13 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
 
   await state.update_data(total_price=total_price)
 
+  # Получаем номинал в валюте страны по актуальному курсу
+  curr_code = data.get("curr_code", "USD")
+  curr_symbol = data.get("curr_symbol", "USD")
+  rate = await get_exchange_rate(curr_code)
+  local_amount = round(total_price * rate)
+  local_str = f"{local_amount:,}".replace(",", " ")
+
   summary_text = (
       "🎉 <b>Ваша анкета успешно сформирована!</b>\n\n"
       "📋 <b>Сводка заказа:</b>\n"
@@ -609,7 +674,8 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
       f"• Фотографий: <b>{len(data.get('photos', []))}</b>\n"
       f"• Задача: <b>{data.get('task')}</b>\n"
       f"• Срочность: <b>{urgency}</b>\n\n"
-      f"💵 <b>Итого к оплате:</b> <b>{total_price}$</b>\n\n"
+      f"💵 <b>Итого к оплате:</b> <b>{total_price}$</b>\n"
+      f"<i>(≈ {local_str} {curr_symbol})</i>\n\n"
       "⚠️ <b>Внимание: Оплата принимается строго в криптовалюте (USDT)!</b>\n"
       "Нажмите кнопку ниже для перевода 👇"
   )
@@ -631,10 +697,16 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
 async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   data = await state.get_data()
   total_price = data.get("total_price", 250)
+  curr_symbol = data.get("curr_symbol", " USD")
+  curr_code = data.get("curr_code", "USD")
+  rate = await get_exchange_rate(curr_code)
+  local_amount = round(total_price * rate)
+  local_str = f"{local_amount:,}".replace(",", " ")
 
   text = (
       "💳 <b>ОПЛАТА ЗАКАЗА</b>\n\n"
-      f"• <b>Сумма к оплате:</b> {total_price}$\n\n"
+      f"• <b>Сумма к оплате:</b> {total_price}$ <i>(≈ {local_str}"
+      f" {curr_symbol})</i>\n\n"
       "⚠️ Оплата нашего сервиса принимается <b>исключительно в криптовалюте"
       " (USDT)</b>.\n\n"
       "Если вы отлично разбираетесь — выберите пункт «Я разбираюсь». Если нет"
@@ -747,10 +819,15 @@ async def process_crypto_expert(callback: CallbackQuery, state: FSMContext):
 async def process_pay_trc20(callback: CallbackQuery, state: FSMContext):
   data = await state.get_data()
   total_price = data.get("total_price", 250)
+  curr_symbol = data.get("curr_symbol", "USD")
+  curr_code = data.get("curr_code", "USD")
+  rate = await get_exchange_rate(curr_code)
+  local_amount = round(total_price * rate)
+  local_str = f"{local_amount:,}".replace(",", " ")
 
   payment_text = (
       "💳 <b>ОПЛАТА USDT (TRC-20)</b>\n\n"
-      f"• <b>Сумма:</b> {total_price}$\n"
+      f"• <b>Сумма:</b> {total_price}$ <i>(≈ {local_str} {curr_symbol})</i>\n"
       "• <b>Сеть:</b> TRC-20\n"
       "• <b>Реквизиты для оплаты:</b>\n"
       "<code>TCRbjQUidQfszDWEMnyWQVUscRj7CoqRTn</code>\n\n"
@@ -787,10 +864,15 @@ async def process_pay_trc20(callback: CallbackQuery, state: FSMContext):
 async def process_pay_bep20(callback: CallbackQuery, state: FSMContext):
   data = await state.get_data()
   total_price = data.get("total_price", 250)
+  curr_symbol = data.get("curr_symbol", "USD")
+  curr_code = data.get("curr_code", "USD")
+  rate = await get_exchange_rate(curr_code)
+  local_amount = round(total_price * rate)
+  local_str = f"{local_amount:,}".replace(",", " ")
 
   payment_text = (
       "💳 <b>ОПЛАТА USDT (BEP-20)</b>\n\n"
-      f"• <b>Сумма:</b> {total_price}$\n"
+      f"• <b>Сумма:</b> {total_price}$ <i>(≈ {local_str} {curr_symbol})</i>\n"
       "• <b>Сеть:</b> BEP-20\n"
       "• <b>Реквизиты для оплаты:</b>\n"
       "<code>0x01262ebbea8ffe27236a3ef152fc8a8f7b32ee8e</code>\n\n"
@@ -827,10 +909,15 @@ async def process_pay_bep20(callback: CallbackQuery, state: FSMContext):
 async def process_pay_ton(callback: CallbackQuery, state: FSMContext):
   data = await state.get_data()
   total_price = data.get("total_price", 250)
+  curr_symbol = data.get("curr_symbol", "USD")
+  curr_code = data.get("curr_code", "USD")
+  rate = await get_exchange_rate(curr_code)
+  local_amount = round(total_price * rate)
+  local_str = f"{local_amount:,}".replace(",", " ")
 
   payment_text = (
       "💳 <b>ОПЛАТА USDT (TON)</b>\n\n"
-      f"• <b>Сумма:</b> {total_price}$\n"
+      f"• <b>Сумма:</b> {total_price}$ <i>(≈ {local_str} {curr_symbol})</i>\n"
       "• <b>Сеть:</b> TON\n"
       "• <b>Реквизиты для оплаты:</b>\n"
       "<code>UQDdeysx3s0eh5wa-2-EAA8uMMWQS0exJVaOTbLvXU2iJmzA</code>\n\n"
