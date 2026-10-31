@@ -252,15 +252,43 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
   await callback.answer()
 
 
-# === КНОПКА "ОПЛАТИТЬ" -> РЕКВИЗИТЫ И ПРЕДУПРЕЖДЕНИЕ ===
+# === ВЫБОР СЕТИ ДЛЯ ОПЛАТЫ ===
 @router.callback_query(F.data == "go_to_payment")
 async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
+  text = (
+      "💳 <b>ВЫБОР СПОСОБА ОПЛАТЫ</b>\n\n"
+      "• <b>Сумма к оплате:</b> 250$\n\n"
+      "Пожалуйста, выберите сеть для перевода USDT:"
+  )
+
+  keyboard = InlineKeyboardMarkup(
+      inline_keyboard=[
+          [
+              InlineKeyboardButton(
+                  text="🟢 USDT (BEP-20)", callback_data="pay_bep20"
+              )
+          ],
+          [
+              InlineKeyboardButton(
+                  text="🔵 USDT (TON)", callback_data="pay_ton"
+              )
+          ],
+      ]
+  )
+
+  await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+  await callback.answer()
+
+
+# === ОПЛАТА BEP-20 ===
+@router.callback_query(F.data == "pay_bep20")
+async def process_pay_bep20(callback: CallbackQuery, state: FSMContext):
   payment_text = (
-      "💳 <b>БЛОК ОПЛАТЫ</b>\n\n"
-      "• <b>Сумма к оплате:</b> 250$\n"
-      "• <b>Валюта / Сеть:</b> USDT (TRC20)\n"
+      "💳 <b>ОПЛАТА USDT (BEP-20)</b>\n\n"
+      "• <b>Сумма:</b> 250$\n"
+      "• <b>Сеть:</b> BEP-20\n"
       "• <b>Реквизиты для оплаты:</b>\n"
-      "<code>TCRbjQUidQfszDWEMnyWQVUscRj7CoqRTn</code>\n\n"
+      "<code>0x01262ebbea8ffe27236a3ef152fc8a8f7b32ee8e</code>\n\n"
       "⚠️ <b>ВНИМАНИЕ!</b>\n"
       "<i>Если вы не производили оплату, не нажимайте кнопку «Оплачено» и не"
       " тратьте свое и чужое время — администратор связывается только после"
@@ -273,7 +301,48 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
               InlineKeyboardButton(
                   text="✅ Оплачено", callback_data="confirm_payment"
               )
-          ]
+          ],
+          [
+              InlineKeyboardButton(
+                  text="⬅️ Назад к выбору сети", callback_data="go_to_payment"
+              )
+          ],
+      ]
+  )
+
+  await callback.message.edit_text(
+      payment_text, reply_markup=keyboard, parse_mode="HTML"
+  )
+  await callback.answer()
+
+
+# === ОПЛАТА TON ===
+@router.callback_query(F.data == "pay_ton")
+async def process_pay_ton(callback: CallbackQuery, state: FSMContext):
+  payment_text = (
+      "💳 <b>ОПЛАТА USDT (TON)</b>\n\n"
+      "• <b>Сумма:</b> 250$\n"
+      "• <b>Сеть:</b> TON\n"
+      "• <b>Реквизиты для оплаты:</b>\n"
+      "<code>UQDdeysx3s0eh5wa-2-EAA8uMMWQS0exJVaOTbLvXU2iJmzA</code>\n\n"
+      "⚠️ <b>ВНИМАНИЕ!</b>\n"
+      "<i>Если вы не производили оплату, не нажимайте кнопку «Оплачено» и не"
+      " тратьте свое и чужое время — администратор связывается только после"
+      " проверки реального перевода!</i>"
+  )
+
+  keyboard = InlineKeyboardMarkup(
+      inline_keyboard=[
+          [
+              InlineKeyboardButton(
+                  text="✅ Оплачено", callback_data="confirm_payment"
+              )
+          ],
+          [
+              InlineKeyboardButton(
+                  text="⬅️ Назад к выбору сети", callback_data="go_to_payment"
+              )
+          ],
       ]
   )
 
