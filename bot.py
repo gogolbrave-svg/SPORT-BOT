@@ -98,7 +98,10 @@ async def process_start_order(callback: CallbackQuery, state: FSMContext):
           [
               InlineKeyboardButton(
                   text="🇬🇪 Грузия", callback_data="country_Georgia"
-              )
+              ),
+              InlineKeyboardButton(
+                  text="🇦🇲 Армения", callback_data="country_Armenia"
+              ),
           ],
       ]
   )
@@ -124,6 +127,7 @@ async def process_country(callback: CallbackQuery, state: FSMContext):
       "Kyrgyzstan": "Кыргызстан",
       "Tajikistan": "Таджикистан",
       "Georgia": "Грузия",
+      "Armenia": "Армения",
   }
   selected = names.get(c_code, c_code)
 
