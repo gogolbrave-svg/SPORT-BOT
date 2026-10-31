@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import random
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
@@ -254,7 +255,11 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
       "2-3_дня": "📅 В течение 2-3 дней",
   }
   urgency = u_map.get(urgency_raw, urgency_raw)
-  await state.update_data(urgency=urgency)
+
+  # Рандомизируем цену: выбираем случайную из круглых значений
+  price = random.choice([100, 150, 200, 250, 300])
+
+  await state.update_data(urgency=urgency, price=price)
 
   data = await state.get_data()
   summary_text = (
@@ -266,7 +271,7 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
       f"• Фотографий: <b>{len(data.get('photos', []))}</b>\n"
       f"• Задача: <b>{data.get('task')}</b>\n"
       f"• Срочность: <b>{urgency}</b>\n\n"
-      "💵 <b>Сумма к оплате:</b> <b>250$</b>\n\n"
+      f"💵 <b>Сумма к оплате:</b> <b>{price}$</b>\n\n"
       "Нажмите кнопку ниже для перехода к оплате 👇"
   )
 
@@ -285,9 +290,12 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
 # === ВЫБОР СЕТИ ДЛЯ ОПЛАТЫ ===
 @router.callback_query(F.data == "go_to_payment")
 async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
+  data = await state.get_data()
+  price = data.get("price", 250)
+
   text = (
       "💳 <b>ВЫБОР СПОСОБА ОПЛАТЫ</b>\n\n"
-      "• <b>Сумма к оплате:</b> 250$\n\n"
+      f"• <b>Сумма к оплате:</b> {price}$\n\n"
       "Пожалуйста, выберите сеть для перевода USDT:"
   )
 
@@ -313,9 +321,12 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
 # === ОПЛАТА BEP-20 ===
 @router.callback_query(F.data == "pay_bep20")
 async def process_pay_bep20(callback: CallbackQuery, state: FSMContext):
+  data = await state.get_data()
+  price = data.get("price", 250)
+
   payment_text = (
       "💳 <b>ОПЛАТА USDT (BEP-20)</b>\n\n"
-      "• <b>Сумма:</b> 250$\n"
+      f"• <b>Сумма:</b> {price}$\n"
       "• <b>Сеть:</b> BEP-20\n"
       "• <b>Реквизиты для оплаты:</b>\n"
       "<code>0x01262ebbea8ffe27236a3ef152fc8a8f7b32ee8e</code>\n\n"
@@ -349,9 +360,12 @@ async def process_pay_bep20(callback: CallbackQuery, state: FSMContext):
 # === ОПЛАТА TON ===
 @router.callback_query(F.data == "pay_ton")
 async def process_pay_ton(callback: CallbackQuery, state: FSMContext):
+  data = await state.get_data()
+  price = data.get("price", 250)
+
   payment_text = (
       "💳 <b>ОПЛАТА USDT (TON)</b>\n\n"
-      "• <b>Сумма:</b> 250$\n"
+      f"• <b>Сумма:</b> {price}$\n"
       "• <b>Сеть:</b> TON\n"
       "• <b>Реквизиты для оплаты:</b>\n"
       "<code>UQDdeysx3s0eh5wa-2-EAA8uMMWQS0exJVaOTbLvXU2iJmzA</code>\n\n"
