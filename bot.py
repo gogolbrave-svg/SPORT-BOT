@@ -705,7 +705,7 @@ async def process_crypto_guide(callback: CallbackQuery):
   await callback.answer()
 
 
-# === ВЫБОР СЕТИ ДЛЯ ОПЛАТЫ (BEP-20 / TON) ===
+# === ВЫБОР СЕТИ ДЛЯ ОПЛАТЫ (BEP-20 / TON / TRC-20) ===
 @router.callback_query(F.data == "crypto_expert")
 async def process_crypto_expert(callback: CallbackQuery, state: FSMContext):
   text = (
@@ -715,6 +715,11 @@ async def process_crypto_expert(callback: CallbackQuery, state: FSMContext):
 
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
+          [
+              InlineKeyboardButton(
+                  text="🔴 USDT (TRC-20)", callback_data="pay_trc20"
+              )
+          ],
           [
               InlineKeyboardButton(
                   text="🟢 USDT (BEP-20)", callback_data="pay_bep20"
@@ -734,6 +739,46 @@ async def process_crypto_expert(callback: CallbackQuery, state: FSMContext):
   )
 
   await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+  await callback.answer()
+
+
+# === ОПЛАТА TRC-20 ===
+@router.callback_query(F.data == "pay_trc20")
+async def process_pay_trc20(callback: CallbackQuery, state: FSMContext):
+  data = await state.get_data()
+  total_price = data.get("total_price", 250)
+
+  payment_text = (
+      "💳 <b>ОПЛАТА USDT (TRC-20)</b>\n\n"
+      f"• <b>Сумма:</b> {total_price}$\n"
+      "• <b>Сеть:</b> TRC-20\n"
+      "• <b>Реквизиты для оплаты:</b>\n"
+      "<code>TCRbjQUidQfszDWEMnyWQVUscRj7CoqRTn</code>\n\n"
+      "⚠️ <b>ВНИМАНИЕ!</b>\n"
+      "<i>Переводите строго точную сумму в сети TRC-20. После оплаты обязательно"
+      " нажмите кнопку ниже и отправьте чек! Без чека заявка не будет"
+      " обработана.</i>"
+  )
+
+  keyboard = InlineKeyboardMarkup(
+      inline_keyboard=[
+          [
+              InlineKeyboardButton(
+                  text="✅ Я оплатил(-а), прикрепить чек",
+                  callback_data="ask_for_receipt",
+              )
+          ],
+          [
+              InlineKeyboardButton(
+                  text="⬅️ Назад к выбору сети", callback_data="crypto_expert"
+              )
+          ],
+      ]
+  )
+
+  await callback.message.edit_text(
+      payment_text, reply_markup=keyboard, parse_mode="HTML"
+  )
   await callback.answer()
 
 
