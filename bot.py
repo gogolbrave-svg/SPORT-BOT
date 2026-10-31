@@ -79,6 +79,27 @@ async def process_start_order(callback: CallbackQuery, state: FSMContext):
                   text="🇰🇿 Казахстан", callback_data="country_Kazakhstan"
               ),
           ],
+          [
+              InlineKeyboardButton(
+                  text="🇲🇩 Молдова", callback_data="country_Moldova"
+              ),
+              InlineKeyboardButton(
+                  text="🇺🇿 Узбекистан", callback_data="country_Uzbekistan"
+              ),
+          ],
+          [
+              InlineKeyboardButton(
+                  text="🇰🇬 Кыргызстан", callback_data="country_Kyrgyzstan"
+              ),
+              InlineKeyboardButton(
+                  text="🇹🇯 Таджикистан", callback_data="country_Tajikistan"
+              ),
+          ],
+          [
+              InlineKeyboardButton(
+                  text="🇬🇪 Грузия", callback_data="country_Georgia"
+              )
+          ],
       ]
   )
   await callback.message.edit_text(
@@ -98,6 +119,11 @@ async def process_country(callback: CallbackQuery, state: FSMContext):
       "Russia": "Россия",
       "Belarus": "Беларусь",
       "Kazakhstan": "Казахстан",
+      "Moldova": "Молдова",
+      "Uzbekistan": "Узбекистан",
+      "Kyrgyzstan": "Кыргызстан",
+      "Tajikistan": "Таджикистан",
+      "Georgia": "Грузия",
   }
   selected = names.get(c_code, c_code)
 
