@@ -19,12 +19,6 @@ from dotenv import load_dotenv
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-# Безопасное считывание ID администратора
-try:
-  ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
-except ValueError:
-  ADMIN_ID = 0
-
 if not BOT_TOKEN:
   raise ValueError("❌ BOT_TOKEN не найден!")
 
@@ -618,15 +612,15 @@ async def process_task(message: Message, state: FSMContext):
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="⚡ Сейчас", callback_data="urgency_Сейчас"
+                  text="⚡ Сейчас (+100$)", callback_data="urgency_Сейчас"
               ),
               InlineKeyboardButton(
-                  text="🕐 Сегодня", callback_data="urgency_Сегодня"
+                  text="🕐 Сегодня (+50$)", callback_data="urgency_Сегодня"
               ),
           ],
           [
               InlineKeyboardButton(
-                  text="📅 2-3 дня", callback_data="urgency_2-3_дня"
+                  text="📅 2-3 дня (Бесплатно)", callback_data="urgency_2-3_дня"
               )
           ],
       ]
@@ -647,12 +641,21 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
       "2-3_дня": "📅 В течение 2-3 дней",
   }
   urgency = u_map.get(urgency_raw, urgency_raw)
-  await state.update_data(urgency=urgency)
+
+  # Доплата за срочность
+  urgency_prices = {
+      "Сейчас": 100,
+      "Сегодня": 50,
+      "2-3_дня": 0,
+  }
+  urgency_price = urgency_prices.get(urgency_raw, 0)
+
+  await state.update_data(urgency=urgency, urgency_price=urgency_price)
 
   data = await state.get_data()
   service_price = data.get("service_price", 0)
   addon_price = data.get("addon_price", 0)
-  total_price = service_price + addon_price
+  total_price = service_price + addon_price + urgency_price
 
   await state.update_data(total_price=total_price)
 
@@ -663,17 +666,23 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
   local_amount = round(total_price * rate)
   local_str = f"{local_amount:,}".replace(",", " ")
 
+  urgency_display = (
+      f"{urgency} (+{urgency_price}$)"
+      if urgency_price > 0
+      else f"{urgency} (Бесплатно)"
+  )
+
   summary_text = (
       "🎉 <b>Ваша анкета успешно сформирована!</b>\n\n"
       "📋 <b>Сводка заказа:</b>\n"
       f"• Услуга: <b>{data.get('service_name')}</b> ({service_price}$)\n"
       f"• Отчет: <b>{data.get('addon_type')}</b> ({addon_price}$)\n"
+      f"• Срочность: <b>{urgency_display}</b>\n"
       f"• Страна: <b>{data.get('country')}</b>\n"
       f"• Город: <b>{data.get('city')}</b>\n"
       f"• Адрес: <b>{data.get('address')}</b>\n"
       f"• Фотографий: <b>{len(data.get('photos', []))}</b>\n"
-      f"• Задача: <b>{data.get('task')}</b>\n"
-      f"• Срочность: <b>{urgency}</b>\n\n"
+      f"• Задача: <b>{data.get('task')}</b>\n\n"
       f"💵 <b>Итого к оплате:</b> <b>{total_price}$</b>\n"
       f"<i>(≈ {local_str} {curr_symbol})</i>\n\n"
       "⚠️ <b>Внимание: Оплата принимается строго в криптовалюте (USDT)!</b>\n"
@@ -962,14 +971,13 @@ async def ask_for_receipt(callback: CallbackQuery, state: FSMContext):
   await callback.answer()
 
 
-# === ПОЛУЧЕНИЕ ЧЕКА И ОТПРАВКА АДМИНУ ===
+# === ПОЛУЧЕНИЕ ЧЕКА И СОХРАНЕНИЕ ===
 @router.message(OrderForm.receipt, F.photo)
 async def process_receipt_photo(message: Message, state: FSMContext):
   user = message.from_user
-  receipt_photo_id = message.photo[-1].file_id
   data = await state.get_data()
 
-  # Сохраняем заказ в памяти
+  # Сохраняем заказ в памяти для раздела "Мои заказы"
   order_info = {
       "service_name": data.get("service_name"),
       "total_price": data.get("total_price"),
@@ -980,38 +988,6 @@ async def process_receipt_photo(message: Message, state: FSMContext):
   if user_id not in USER_ORDERS:
     USER_ORDERS[user_id] = []
   USER_ORDERS[user_id].append(order_info)
-
-  # Отправляем полный чек администратору
-  if ADMIN_ID != 0:
-    username_str = f"@{user.username}" if user.username else f"ID: {user.id}"
-    admin_text = (
-        "🚨 <b>НОВЫЙ ЗАКАЗ И ЧЕК ОБ ОПЛАТЕ!</b> 🚨\n\n"
-        f"👤 <b>Клиент:</b> {username_str} (ID: <code>{user.id}</code>)\n"
-        f"• Услуга: <b>{data.get('service_name')}</b>\n"
-        f"• Отчет: <b>{data.get('addon_type')}</b>\n"
-        f"• Страна: <b>{data.get('country')}</b>\n"
-        f"• Город: <b>{data.get('city')}</b>\n"
-        f"• Адрес: <b>{data.get('address')}</b>\n"
-        f"• Задача: <b>{data.get('task')}</b>\n"
-        f"• Срочность: <b>{data.get('urgency')}</b>\n"
-        f"• <b>Сумма к оплате:</b> {data.get('total_price')}$\n\n"
-        "👇 <b>Чек об оплате от клиента:</b>"
-    )
-    try:
-      # Отправляем текстовую сводку и чек
-      await message.bot.send_message(ADMIN_ID, admin_text, parse_mode="HTML")
-      await message.bot.send_photo(ADMIN_ID, receipt_photo_id)
-
-      # Пересылаем также фото цели, если они были загружены
-      photos = data.get("photos", [])
-      if photos:
-        await message.bot.send_message(
-            ADMIN_ID, "📷 <b>Фотографии цели от клиента:</b>", parse_mode="HTML"
-        )
-        for photo_id in photos:
-          await message.bot.send_photo(ADMIN_ID, photo_id)
-    except Exception as e:
-      logger.error(f"Не удалось отправить уведомление админу: {e}")
 
   final_text = (
       "✅ <b>Заявка и чек успешно приняты!</b>\n\n"
