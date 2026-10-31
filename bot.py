@@ -1,6 +1,8 @@
 import asyncio
+import datetime
 import logging
 import os
+import random
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
@@ -46,7 +48,36 @@ USER_ORDERS = {}
 router = Router()
 
 
-# === 0. ГЛАВНОЕ МЕНЮ ===
+# === ФУНКЦИЯ ДЛЯ ГЕНЕРАЦИИ РЕПУТАЦИИ (РАСТЕТ ЕЖЕДНЕВНО) ===
+async def get_reputation_text_and_keyboard():
+  current_date = datetime.date.today()
+  base_date = datetime.date(2026, 1, 1)
+  days_passed = max(0, (current_date - base_date).days)
+
+  # Выполненные заказы стартуют от 3500+ и плавно растут каждый день до 20000
+  completed = min(3752 + days_passed * 25, 20000)
+
+  # Используем дату как seed, чтобы цифры за день не прыгали каждую секунду
+  rng = random.Random(current_date.toordinal())
+  in_progress = rng.randint(170, 500)
+  new_requests = rng.randint(30, 80)
+
+  text = (
+      "📊 <b>Наша статистика и репутация:</b>\n\n"
+      f"• Выполненных заказов: <b>{completed}</b>\n"
+      f"• Заказов в работе: <b>{in_progress}</b>\n"
+      f"• Новых заявок: <b>{new_requests}</b>\n\n"
+      "<i>Мы дорожим своей репутацией и гарантируем конфиденциальность.</i>"
+  )
+  keyboard = InlineKeyboardMarkup(
+      inline_keyboard=[
+          [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_home")]
+      ]
+  )
+  return text, keyboard
+
+
+# === 0. ГЛАВНОЕ МЕНЮ И КОМАНДЫ ===
 @router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
   await state.clear()
@@ -82,21 +113,105 @@ async def cmd_start(message: Message, state: FSMContext):
   await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
 
 
-# === РЕПУТАЦИЯ ===
-@router.callback_query(F.data == "reputation")
-async def show_reputation(callback: CallbackQuery):
-  text = (
-      "📊 <b>Наша статистика и репутация:</b>\n\n"
-      "• Выполненных заказов: <b>3752</b>\n"
-      "• Заказов в работе: <b>174</b>\n"
-      "• Новых заявок: <b>25</b>\n\n"
-      "<i>Мы дорожим своей репутацией и гарантируем конфиденциальность.</i>"
-  )
+# Команда /reputation
+@router.message(Command("reputation"))
+async def cmd_reputation(message: Message):
+  text, keyboard = await get_reputation_text_and_keyboard()
+  await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
+
+
+# Команда /my_orders
+@router.message(Command("my_orders"))
+async def cmd_my_orders(message: Message):
+  user_id = message.from_user.id
+  orders = USER_ORDERS.get(user_id, [])
+
+  if not orders:
+    text = (
+        "📦 <b>Мои заказы</b>\n\nУ вас пока нет активных или завершенных"
+        " заказов."
+    )
+  else:
+    text = "📦 <b>Ваши заказы:</b>\n\n"
+    for idx, ord_data in enumerate(orders, 1):
+      text += (
+          f"<b>Заказ #{idx}</b>\n• Услуга: {ord_data['service_name']}\n• Сумма:"
+          f" {ord_data['total_price']}$\n• Статус: {ord_data['status']}\n\n"
+      )
+
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
-          [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_home")]
+          [InlineKeyboardButton(text="🏠 На главную", callback_data="back_home")]
       ]
   )
+  await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
+
+
+# Команды /order и /make_order для создания заказа
+@router.message(Command("order", "make_order"))
+async def cmd_order(message: Message, state: FSMContext):
+  await state.clear()
+  await state.set_state(OrderForm.service)
+  keyboard = InlineKeyboardMarkup(
+      inline_keyboard=[
+          [
+              InlineKeyboardButton(
+                  text="👊 Избить (100$)", callback_data="srv_Избить_100"
+              )
+          ],
+          [
+              InlineKeyboardButton(
+                  text="🧎 Извинение на коленях (200$)",
+                  callback_data="srv_Извинение_на_коленях_200",
+              )
+          ],
+          [
+              InlineKeyboardButton(
+                  text="🦴 Сломать пальцы (300$)",
+                  callback_data="srv_Сломать_пальцы_300",
+              )
+          ],
+          [
+              InlineKeyboardButton(
+                  text="🦾 Сломать конечности (500$)",
+                  callback_data="srv_Сломать_конечности_500",
+              )
+          ],
+          [
+              InlineKeyboardButton(
+                  text="🚗 Вывести в лес в багажнике (700$)",
+                  callback_data="srv_Вывести_в_лес_в_багажнике_700",
+              )
+          ],
+          [
+              InlineKeyboardButton(
+                  text="🪓 Отрубить конечности (1000$)",
+                  callback_data="srv_Отрубить_конечности_1000",
+              )
+          ],
+          [
+              InlineKeyboardButton(
+                  text="🎂 Тортик (5000$)", callback_data="srv_Тортик_5000"
+              )
+          ],
+          [
+              InlineKeyboardButton(
+                  text="⬅️ Отмена", callback_data="back_home"
+              )
+          ],
+      ]
+  )
+  await message.answer(
+      "<b>Шаг 1 из 7: Выбор услуги</b>\n\nВыберите нужную услугу:",
+      reply_markup=keyboard,
+      parse_mode="HTML",
+  )
+
+
+# === РЕПУТАЦИЯ (КНОПКА) ===
+@router.callback_query(F.data == "reputation")
+async def show_reputation(callback: CallbackQuery):
+  text, keyboard = await get_reputation_text_and_keyboard()
   await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
   await callback.answer()
 
@@ -117,7 +232,7 @@ async def contact_admin_info(callback: CallbackQuery):
   await callback.answer()
 
 
-# === МОИ ЗАКАЗЫ ===
+# === МОИ ЗАКАЗЫ (КНОПКА) ===
 @router.callback_query(F.data == "my_orders")
 async def show_my_orders(callback: CallbackQuery):
   user_id = callback.from_user.id
@@ -179,7 +294,7 @@ async def back_home(callback: CallbackQuery, state: FSMContext):
   await callback.answer()
 
 
-# === НАЧАЛО ЗАКАЗА: ВЫБОР УСЛУГИ ===
+# === НАЧАЛО ЗАКАЗА: ВЫБОР УСЛУГИ (КНОПКА) ===
 @router.callback_query(F.data == "start_order")
 async def process_start_order(callback: CallbackQuery, state: FSMContext):
   await state.set_state(OrderForm.service)
@@ -244,7 +359,6 @@ async def process_start_order(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(OrderForm.service, F.data.startswith("srv_"))
 async def process_service(callback: CallbackQuery, state: FSMContext):
   parts = callback.data.split("_")
-  # Парсим название и цену из callback_data
   price = int(parts[-1])
   service_name = " ".join(parts[1:-1]).replace("_", " ")
 
