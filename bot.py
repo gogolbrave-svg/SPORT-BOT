@@ -225,6 +225,12 @@ async def cmd_order(message: Message, state: FSMContext):
           ],
           [
               InlineKeyboardButton(
+                  text="🏥 Реанимация (1200$)",
+                  callback_data="srv_Реанимация_1200",
+              )
+          ],
+          [
+              InlineKeyboardButton(
                   text="🪓 Отрубить конечности (1500$)",
                   callback_data="srv_Отрубить_конечности_1500",
               )
@@ -371,6 +377,12 @@ async def process_start_order(callback: CallbackQuery, state: FSMContext):
               InlineKeyboardButton(
                   text="🚗 В лес в багажнике (1000$)",
                   callback_data="srv_Вывести_в_лес_в_багажнике_1000",
+              )
+          ],
+          [
+              InlineKeyboardButton(
+                  text="🏥 Реанимация (1200$)",
+                  callback_data="srv_Реанимация_1200",
               )
           ],
           [
