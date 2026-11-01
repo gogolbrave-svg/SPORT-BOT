@@ -50,6 +50,16 @@ class VacancyForm(StatesGroup):
   receipt = State()
 
 
+class AdForm(StatesGroup):
+  platform = State()
+  duration = State()
+  niche = State()
+  link = State()
+  creative = State()
+  network = State()
+  receipt = State()
+
+
 # База данных в памяти для хранения заказов пользователей
 USER_ORDERS = {}
 
@@ -152,6 +162,12 @@ async def cmd_start(message: Message, state: FSMContext):
               InlineKeyboardButton(
                   text="📊 Наша репутация", callback_data="reputation"
               ),
+          ],
+          [
+              InlineKeyboardButton(
+                  text="🤝 Сотрудничество (Купить рекламу)",
+                  callback_data="start_ads",
+              )
           ],
           [
               InlineKeyboardButton(
@@ -345,6 +361,12 @@ async def back_home(callback: CallbackQuery, state: FSMContext):
               InlineKeyboardButton(
                   text="📊 Наша репутация", callback_data="reputation"
               ),
+          ],
+          [
+              InlineKeyboardButton(
+                  text="🤝 Сотрудничество (Купить рекламу)",
+                  callback_data="start_ads",
+              )
           ],
           [
               InlineKeyboardButton(
@@ -1218,7 +1240,7 @@ async def process_vacancy_sports_exp(message: Message, state: FSMContext):
   await state.set_state(VacancyForm.experience)
   await message.answer(
       "💼 <b>АНКЕТА СОИСКАТЕЛЯ</b>\n\n<b>Шаг 7 из 8: Опыт работы</b>\nБыл ли у вас"
-      " опыт в подобных делах или сфере услуг? Раскратко опишите:",
+      " опыт в подобных делах или сфере услуг? Кратко опишите:",
       parse_mode="HTML",
   )
 
@@ -1440,6 +1462,323 @@ async def process_vacancy_receipt_invalid(message: Message):
   await message.answer(
       "⚠️ Пожалуйста, отправьте именно <b>фотографию или скриншот чека</b>"
       " (картинкой)!"
+  )
+
+
+# =====================================================================
+# === ПОКУПКА РЕКЛАМЫ (СОТРУДНИЧЕСТВО) =================================
+# =====================================================================
+
+
+@router.callback_query(F.data == "start_ads")
+async def process_start_ads(callback: CallbackQuery, state: FSMContext):
+  await state.clear()
+  await state.set_state(AdForm.platform)
+  text = (
+      "📢 <b>ПОКУПКА РЕКЛАМЫ И СОТРУДНИЧЕСТВО</b>\n\n"
+      "Выберите площадку для размещения вашей рекламы:"
+  )
+  keyboard = InlineKeyboardMarkup(
+      inline_keyboard=[
+          [
+              InlineKeyboardButton(
+                  text="🤖 Реклама в боте (SPORTIKI SHOP BOT)",
+                  callback_data="adplat_bot",
+              )
+          ],
+          [
+              InlineKeyboardButton(
+                  text="📢 Реклама в канале (SPORTIKI SHOP)",
+                  callback_data="adplat_channel",
+              )
+          ],
+          [InlineKeyboardButton(text="⬅️ На главную", callback_data="back_home")],
+      ]
+  )
+  await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+  await callback.answer()
+
+
+@router.callback_query(AdForm.platform, F.data.startswith("adplat_"))
+async def process_ad_platform(callback: CallbackQuery, state: FSMContext):
+  plat_code = callback.data.split("_")[1]
+  platform_name = (
+      "SPORTIKI SHOP BOT" if plat_code == "bot" else "SPORTIKI SHOP (Канал)"
+  )
+  await state.update_data(platform=platform_name, plat_code=plat_code)
+  await state.set_state(AdForm.duration)
+
+  if plat_code == "bot":
+    kb_list = [
+        [InlineKeyboardButton(text="24 часа = 20$", callback_data="addur_24h_20")],
+        [InlineKeyboardButton(text="3 дня = 50$", callback_data="addur_3d_50")],
+        [InlineKeyboardButton(text="7 дней = 100$", callback_data="addur_7d_100")],
+        [
+            InlineKeyboardButton(
+                text="30 дней = 400$", callback_data="addur_30d_400"
+            )
+        ],
+    ]
+  else:
+    kb_list = [
+        [InlineKeyboardButton(text="24 часа = 30$", callback_data="addur_24h_30")],
+        [InlineKeyboardButton(text="3 дня = 80$", callback_data="addur_3d_80")],
+        [
+            InlineKeyboardButton(
+                text="7 дней = 175$", callback_data="addur_7d_175"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text="30 дней = 700$", callback_data="addur_30d_700"
+            )
+        ],
+    ]
+
+  kb_list.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="start_ads")])
+  keyboard = InlineKeyboardMarkup(inline_keyboard=kb_list)
+
+  text = (
+      f"📢 <b>Площадка: {platform_name}</b>\n\n"
+      "<b>Выберите срок размещения рекламы:</b>"
+  )
+  await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+  await callback.answer()
+
+
+@router.callback_query(AdForm.duration, F.data.startswith("addur_"))
+async def process_ad_duration(callback: CallbackQuery, state: FSMContext):
+  parts = callback.data.split("_")
+  duration_code = parts[1]
+  price = int(parts[2])
+
+  dur_map = {
+      "24h": "24 часа",
+      "3d": "3 дня",
+      "7d": "7 дней",
+      "30d": "30 дней",
+  }
+  duration_str = dur_map.get(duration_code, duration_code)
+
+  await state.update_data(duration=duration_str, ad_price=price)
+  await state.set_state(AdForm.niche)
+
+  text = (
+      f"📢 <b>Выбрано: {duration_str} — {price}$</b>\n\n"
+      "<b>Шаг 3: Ваша тематика (ниша)</b>\n"
+      "Введите тематику или нишу вашего проекта текстом:"
+  )
+  await callback.message.edit_text(text, parse_mode="HTML")
+  await callback.answer()
+
+
+@router.message(AdForm.niche, F.text)
+async def process_ad_niche(message: Message, state: FSMContext):
+  await state.update_data(niche=message.text.strip())
+  await state.set_state(AdForm.link)
+  await message.answer(
+      "📢 <b>Шаг 4: Ссылка</b>\n\nВведите ссылку на ваш ресурс или бота:",
+      parse_mode="HTML",
+  )
+
+
+@router.message(AdForm.link, F.text)
+async def process_ad_link(message: Message, state: FSMContext):
+  await state.update_data(link=message.text.strip())
+  await state.set_state(AdForm.creative)
+  await message.answer(
+      "📢 <b>Шаг 5: Креатив</b>\n\n"
+      "Отправьте креатив (изображение, текст поста или видео), который будет использоваться для рекламы:",
+      parse_mode="HTML",
+  )
+
+
+@router.message(AdForm.creative)
+async def process_ad_creative(message: Message, state: FSMContext):
+  # Сохраняем тип и содержимое креатива
+  if message.photo:
+    creative_desc = f"[Фотография] {message.caption or ''}"
+  elif message.video:
+    creative_desc = f"[Видео] {message.caption or ''}"
+  else:
+    creative_desc = message.text or "[Текст]"
+
+  await state.update_data(creative=creative_desc)
+  data = await state.get_data()
+  price = data.get("ad_price", 0)
+
+  text = (
+      "🎉 <b>Рекламная заявка успешно сформирована!</b>\n\n"
+      f"• Площадка: <b>{data.get('platform')}</b>\n"
+      f"• Срок: <b>{data.get('duration')}</b>\n"
+      f"• Ниша: <b>{data.get('niche')}</b>\n"
+      f"• Ссылка: <b>{data.get('link')}</b>\n"
+      f"• Креатив: <b>{creative_desc}</b>\n\n"
+      f"💵 <b>К оплате: {price}$</b>\n\n"
+      "⚠️ <b>Оплата принимается строго в криптовалюте (USDT)!</b>\n"
+      "Нажмите кнопку ниже для выбора сети и оплаты 👇"
+  )
+
+  keyboard = InlineKeyboardMarkup(
+      inline_keyboard=[
+          [
+              InlineKeyboardButton(
+                  text="💳 Оплатить рекламу", callback_data="ad_pay_select"
+              )
+          ]
+      ]
+  )
+  await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
+
+
+@router.callback_query(F.data == "ad_pay_select")
+async def process_ad_pay_select(callback: CallbackQuery, state: FSMContext):
+  data = await state.get_data()
+  price = data.get("ad_price", 0)
+
+  text = (
+      f"💳 <b>ОПЛАТА РЕКЛАМЫ ({price}$)</b>\n\n"
+      "Выберите сеть для перевода USDT:"
+  )
+  keyboard = InlineKeyboardMarkup(
+      inline_keyboard=[
+          [
+              InlineKeyboardButton(
+                  text="🔴 USDT (TRC-20)", callback_data="adpay_trc20"
+              )
+          ],
+          [
+              InlineKeyboardButton(
+                  text="🟢 USDT (BEP-20)", callback_data="adpay_bep20"
+              )
+          ],
+          [
+              InlineKeyboardButton(
+                  text="🔵 USDT (TON)", callback_data="adpay_ton"
+              )
+          ],
+          [InlineKeyboardButton(text="⬅️ На главную", callback_data="back_home")],
+      ]
+  )
+  await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+  await callback.answer()
+
+
+@router.callback_query(F.data == "adpay_trc20")
+async def adpay_trc20(callback: CallbackQuery, state: FSMContext):
+  data = await state.get_data()
+  price = data.get("ad_price", 0)
+  text = (
+      f"💳 <b>ОПЛАТА РЕКЛАМЫ (TRC-20)</b>\n\n"
+      f"• <b>Сумма:</b> {price}$\n"
+      "• <b>Сеть:</b> TRC-20\n"
+      "• <b>Реквизиты для оплаты:</b>\n"
+      "<code>TCRbjQUidQfszDWEMnyWQVUscRj7CoqRTn</code>\n\n"
+      "⚠️ <b>ВНИМАНИЕ!</b>\n"
+      "Переводите строго точную сумму. После оплаты нажмите кнопку ниже и прикрепите чек!"
+  )
+  keyboard = InlineKeyboardMarkup(
+      inline_keyboard=[
+          [
+              InlineKeyboardButton(
+                  text="✅ Я оплатил(-а), прикрепить чек",
+                  callback_data="ad_ask_receipt",
+              )
+          ]
+      ]
+  )
+  await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+  await callback.answer()
+
+
+@router.callback_query(F.data == "adpay_bep20")
+async def adpay_bep20(callback: CallbackQuery, state: FSMContext):
+  data = await state.get_data()
+  price = data.get("ad_price", 0)
+  text = (
+      f"💳 <b>ОПЛАТА РЕКЛАМЫ (BEP-20)</b>\n\n"
+      f"• <b>Сумма:</b> {price}$\n"
+      "• <b>Сеть:</b> BEP-20\n"
+      "• <b>Реквизиты для оплаты:</b>\n"
+      "<code>0x01262ebbea8ffe27236a3ef152fc8a8f7b32ee8e</code>\n\n"
+      "⚠️ <b>ВНИМАНИЕ!</b>\n"
+      "Переводите строго точную сумму. После оплаты нажмите кнопку ниже и прикрепите чек!"
+  )
+  keyboard = InlineKeyboardMarkup(
+      inline_keyboard=[
+          [
+              InlineKeyboardButton(
+                  text="✅ Я оплатил(-а), прикрепить чек",
+                  callback_data="ad_ask_receipt",
+              )
+          ]
+      ]
+  )
+  await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+  await callback.answer()
+
+
+@router.callback_query(F.data == "adpay_ton")
+async def adpay_ton(callback: CallbackQuery, state: FSMContext):
+  data = await state.get_data()
+  price = data.get("ad_price", 0)
+  text = (
+      f"💳 <b>ОПЛАТА РЕКЛАМЫ (TON)</b>\n\n"
+      f"• <b>Сумма:</b> {price}$\n"
+      "• <b>Сеть:</b> TON\n"
+      "• <b>Реквизиты для оплаты:</b>\n"
+      "<code>UQDdeysx3s0eh5wa-2-EAA8uMMWQS0exJVaOTbLvXU2iJmzA</code>\n\n"
+      "⚠️ <b>ВНИМАНИЕ!</b>\n"
+      "Переводите строго точную сумму. После оплаты нажмите кнопку ниже и прикрепите чек!"
+  )
+  keyboard = InlineKeyboardMarkup(
+      inline_keyboard=[
+          [
+              InlineKeyboardButton(
+                  text="✅ Я оплатил(-а), прикрепить чек",
+                  callback_data="ad_ask_receipt",
+              )
+          ]
+      ]
+  )
+  await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+  await callback.answer()
+
+
+@router.callback_query(F.data == "ad_ask_receipt")
+async def ad_ask_receipt(callback: CallbackQuery, state: FSMContext):
+  await state.set_state(AdForm.receipt)
+  text = (
+      "🧾 <b>Подтверждение оплаты рекламы</b>\n\n"
+      "Пожалуйста, отправьте в чат <b>фотографию или скриншот чека</b> о переводе."
+  )
+  await callback.message.edit_text(text, parse_mode="HTML")
+  await callback.answer()
+
+
+@router.message(AdForm.receipt, F.photo)
+async def process_ad_receipt(message: Message, state: FSMContext):
+  final_text = (
+      "✅ <b>Заявка на рекламу и чек успешно приняты!</b>\n\n"
+      "Ожидайте, модератор проверит поступление средств в течение <b>25 минут</b> и свяжется с вами."
+  )
+  keyboard = InlineKeyboardMarkup(
+      inline_keyboard=[
+          [
+              InlineKeyboardButton(
+                  text="🏠 На главную", callback_data="back_home"
+              )
+          ]
+      ]
+  )
+  await message.answer(final_text, reply_markup=keyboard, parse_mode="HTML")
+  await state.clear()
+
+
+@router.message(AdForm.receipt, ~F.photo)
+async def process_ad_receipt_invalid(message: Message):
+  await message.answer(
+      "⚠️ Пожалуйста, отправьте именно <b>фотографию или скриншот чека</b> (картинкой)!"
   )
 
 
