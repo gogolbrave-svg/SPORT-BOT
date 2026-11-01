@@ -151,8 +151,6 @@ async def cmd_start(message: Message, state: FSMContext):
       "<b>Добро пожаловать в сервис «СПОРТ УСЛУГИ»!</b> 🏅\n\n"
       "Мы предоставляем профессиональные услуги и решение ваших задач быстро, "
       "качественно и конфиденциально.\n\n"
-      "🔥 <b>Скидка -20% на ваш первый заказ!</b> Цены в прайсе уже указаны со"
-      " скидкой.\n\n"
       "Выберите нужный пункт в меню ниже:"
   )
   await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
@@ -198,44 +196,48 @@ async def cmd_order(message: Message, state: FSMContext):
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="👊 Избить: 100$ -> 80$ (-20%)",
-                  callback_data="srv_Избить_80",
+                  text="👊 Избить (150$)", callback_data="srv_Избить_150"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🧎 Извинение на коленях: 200$ -> 160$ (-20%)",
-                  callback_data="srv_Извинение_на_коленях_160",
+                  text="🧎 Извинение на коленях (300$)",
+                  callback_data="srv_Извинение_на_коленях_300",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🦴 Сломать пальцы: 300$ -> 240$ (-20%)",
-                  callback_data="srv_Сломать_пальцы_240",
+                  text="🦴 Сломать пальцы (500$)",
+                  callback_data="srv_Сломать_пальцы_500",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🦾 Сломать конечности: 500$ -> 400$ (-20%)",
-                  callback_data="srv_Сломать_конечности_400",
+                  text="🦾 Сломать конечности (700$)",
+                  callback_data="srv_Сломать_конечности_700",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🚗 В лес в багажнике: 700$ -> 560$ (-20%)",
-                  callback_data="srv_Вывести_в_лес_в_багажнике_560",
+                  text="🚗 В лес в багажнике (1000$)",
+                  callback_data="srv_Вывести_в_лес_в_багажнике_1000",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🪓 Отрубить конечности: 1000$ -> 800$ (-20%)",
-                  callback_data="srv_Отрубить_конечности_800",
+                  text="🪓 Отрубить конечности (1500$)",
+                  callback_data="srv_Отрубить_конечности_1500",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🎂 Тортик: 5000$ -> 4000$ (-20%)",
-                  callback_data="srv_Тортик_4000",
+                  text="🎯 Прострелить колени (2000$)",
+                  callback_data="srv_Прострелить_колени_2000",
+              )
+          ],
+          [
+              InlineKeyboardButton(
+                  text="🎂 Тортик (6000$)", callback_data="srv_Тортик_6000"
               )
           ],
           [
@@ -246,8 +248,7 @@ async def cmd_order(message: Message, state: FSMContext):
       ]
   )
   await message.answer(
-      "<b>Шаг 1 из 7: Выбор услуги</b>\n\n🎯 <i>Применен бонус: Скидка -20% на"
-      " первый заказ!</i>\nВыберите нужную услугу:",
+      "<b>Шаг 1 из 7: Выбор услуги</b>\n\nВыберите нужную услугу:",
       reply_markup=keyboard,
       parse_mode="HTML",
   )
@@ -332,8 +333,6 @@ async def back_home(callback: CallbackQuery, state: FSMContext):
       "<b>Добро пожаловать в сервис «СПОРТ УСЛУГИ»!</b> 🏅\n\n"
       "Мы предоставляем профессиональные услуги и решение ваших задач быстро, "
       "качественно и конфиденциально.\n\n"
-      "🔥 <b>Скидка -20% на ваш первый заказ!</b> Цены в прайсе уже указаны со"
-      " скидкой.\n\n"
       "Выберите нужный пункт в меню ниже:"
   )
   await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
@@ -347,44 +346,48 @@ async def process_start_order(callback: CallbackQuery, state: FSMContext):
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="👊 Избить: 100$ -> 80$ (-20%)",
-                  callback_data="srv_Избить_80",
+                  text="👊 Избить (150$)", callback_data="srv_Избить_150"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🧎 Извинение на коленях: 200$ -> 160$ (-20%)",
-                  callback_data="srv_Извинение_на_коленях_160",
+                  text="🧎 Извинение на коленях (300$)",
+                  callback_data="srv_Извинение_на_коленях_300",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🦴 Сломать пальцы: 300$ -> 240$ (-20%)",
-                  callback_data="srv_Сломать_пальцы_240",
+                  text="🦴 Сломать пальцы (500$)",
+                  callback_data="srv_Сломать_пальцы_500",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🦾 Сломать конечности: 500$ -> 400$ (-20%)",
-                  callback_data="srv_Сломать_конечности_400",
+                  text="🦾 Сломать конечности (700$)",
+                  callback_data="srv_Сломать_конечности_700",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🚗 В лес в багажнике: 700$ -> 560$ (-20%)",
-                  callback_data="srv_Вывести_в_лес_в_багажнике_560",
+                  text="🚗 В лес в багажнике (1000$)",
+                  callback_data="srv_Вывести_в_лес_в_багажнике_1000",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🪓 Отрубить конечности: 1000$ -> 800$ (-20%)",
-                  callback_data="srv_Отрубить_конечности_800",
+                  text="🪓 Отрубить конечности (1500$)",
+                  callback_data="srv_Отрубить_конечности_1500",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🎂 Тортик: 5000$ -> 4000$ (-20%)",
-                  callback_data="srv_Тортик_4000",
+                  text="🎯 Прострелить колени (2000$)",
+                  callback_data="srv_Прострелить_колени_2000",
+              )
+          ],
+          [
+              InlineKeyboardButton(
+                  text="🎂 Тортик (6000$)", callback_data="srv_Тортик_6000"
               )
           ],
           [
@@ -395,8 +398,7 @@ async def process_start_order(callback: CallbackQuery, state: FSMContext):
       ]
   )
   await callback.message.edit_text(
-      "<b>Шаг 1 из 7: Выбор услуги</b>\n\n🎯 <i>Применен бонус: Скидка -20% на"
-      " первый заказ!</i>\nВыберите нужную услугу:",
+      "<b>Шаг 1 из 7: Выбор услуги</b>\n\nВыберите нужную услугу:",
       reply_markup=keyboard,
       parse_mode="HTML",
   )
@@ -428,7 +430,7 @@ async def process_service(callback: CallbackQuery, state: FSMContext):
   )
   await callback.message.edit_text(
       f"<b>Шаг 2 из 7: Отчет</b>\n\nВыбрана услуга: <b>{service_name}</b>"
-      f" ({price}$ со скидкой)\n\nВыберите тип отчета:",
+      f" ({price}$)\n\nВыберите тип отчета:",
       reply_markup=keyboard,
       parse_mode="HTML",
   )
@@ -598,7 +600,8 @@ async def process_photo(message: Message, state: FSMContext):
 async def finish_photos(callback: CallbackQuery, state: FSMContext):
   await state.set_state(OrderForm.task)
   await callback.message.edit_text(
-      "<b>Шаг 7 из 7: Задача</b>\n\nПодробно опишите, что нужно сделать:",
+      "<b>Шаг 7 из 7: Задача</b>\n\nПодробно опишите, что нужно сделать, можете"
+      " рассказать свою историю и указать все важные детали:",
       parse_mode="HTML",
   )
   await callback.answer()
@@ -612,15 +615,18 @@ async def process_task(message: Message, state: FSMContext):
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="⚡ Сейчас (+100$)", callback_data="urgency_Сейчас"
-              ),
-              InlineKeyboardButton(
-                  text="🕐 Сегодня (+50$)", callback_data="urgency_Сегодня"
-              ),
+                  text="⚡ В течении 2-3 часов (+200$)",
+                  callback_data="urgency_2-3_часа",
+              )
           ],
           [
               InlineKeyboardButton(
-                  text="📅 2-3 дня (Бесплатно)", callback_data="urgency_2-3_дня"
+                  text="🕐 Завтра (+100$)", callback_data="urgency_Завтра"
+              )
+          ],
+          [
+              InlineKeyboardButton(
+                  text="📅 2-5 дней (Бесплатно)", callback_data="urgency_2-5_дней"
               )
           ],
       ]
@@ -636,17 +642,17 @@ async def process_task(message: Message, state: FSMContext):
 async def process_urgency(callback: CallbackQuery, state: FSMContext):
   urgency_raw = callback.data.split("_", 1)[1]
   u_map = {
-      "Сейчас": "⚡ Сейчас",
-      "Сегодня": "🕐 Сегодня",
-      "2-3_дня": "📅 В течение 2-3 дней",
+      "2-3_часа": "⚡ В течении 2-3 часов",
+      "Завтра": "🕐 Завтра",
+      "2-5_дней": "📅 В течение 2-5 дней",
   }
   urgency = u_map.get(urgency_raw, urgency_raw)
 
   # Доплата за срочность
   urgency_prices = {
-      "Сейчас": 100,
-      "Сегодня": 50,
-      "2-3_дня": 0,
+      "2-3_часа": 200,
+      "Завтра": 100,
+      "2-5_дней": 0,
   }
   urgency_price = urgency_prices.get(urgency_raw, 0)
 
