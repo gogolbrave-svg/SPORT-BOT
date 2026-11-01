@@ -38,6 +38,18 @@ class OrderForm(StatesGroup):
   receipt = State()  # Состояние для ожидания чека
 
 
+class VacancyForm(StatesGroup):
+  country = State()
+  city = State()
+  name = State()
+  age = State()
+  parameters = State()
+  sports_exp = State()
+  experience = State()
+  photo = State()
+  receipt = State()
+
+
 # База данных в памяти для хранения заказов пользователей
 USER_ORDERS = {}
 
@@ -145,6 +157,11 @@ async def cmd_start(message: Message, state: FSMContext):
               InlineKeyboardButton(
                   text="💬 Связаться с администратором",
                   callback_data="contact_admin",
+              )
+          ],
+          [
+              InlineKeyboardButton(
+                  text="💼 Работа в команде", callback_data="start_vacancy"
               )
           ],
       ]
@@ -333,6 +350,11 @@ async def back_home(callback: CallbackQuery, state: FSMContext):
               InlineKeyboardButton(
                   text="💬 Связаться с администратором",
                   callback_data="contact_admin",
+              )
+          ],
+          [
+              InlineKeyboardButton(
+                  text="💼 Работа в команде", callback_data="start_vacancy"
               )
           ],
       ]
@@ -1040,6 +1062,384 @@ async def process_receipt_invalid(message: Message):
   await message.answer(
       "⚠️ Пожалуйста, отправьте именно <b>фотографию или скриншот чека</b>"
       " (картинкой), текстовые сообщения в качестве чека не принимаются!"
+  )
+
+
+# =====================================================================
+# === АНКЕТА ДЛЯ ТРУДОУСТРОЙСТВА В КОМАНДУ (ВАКАНСИИ) ===================
+# =====================================================================
+
+
+@router.callback_query(F.data == "start_vacancy")
+async def process_start_vacancy(callback: CallbackQuery, state: FSMContext):
+  await state.clear()
+  await state.set_state(VacancyForm.country)
+  keyboard = InlineKeyboardMarkup(
+      inline_keyboard=[
+          [
+              InlineKeyboardButton(
+                  text="🇺🇦 Украина", callback_data="vcountry_Ukraine"
+              ),
+              InlineKeyboardButton(
+                  text="🇷🇺 Россия", callback_data="vcountry_Russia"
+              ),
+          ],
+          [
+              InlineKeyboardButton(
+                  text="🇧🇾 Беларусь", callback_data="vcountry_Belarus"
+              ),
+              InlineKeyboardButton(
+                  text="🇰🇿 Казахстан", callback_data="vcountry_Kazakhstan"
+              ),
+          ],
+          [
+              InlineKeyboardButton(
+                  text="🇲🇩 Молдова", callback_data="vcountry_Moldova"
+              ),
+              InlineKeyboardButton(
+                  text="🇺🇿 Узбекистан", callback_data="vcountry_Uzbekistan"
+              ),
+          ],
+          [
+              InlineKeyboardButton(
+                  text="🇰🇬 Кыргызстан", callback_data="vcountry_Kyrgyzstan"
+              ),
+              InlineKeyboardButton(
+                  text="🇹🇯 Таджикистан", callback_data="vcountry_Tajikistan"
+              ),
+          ],
+          [
+              InlineKeyboardButton(
+                  text="🇬🇪 Грузия", callback_data="vcountry_Georgia"
+              ),
+              InlineKeyboardButton(
+                  text="🇦🇲 Армения", callback_data="vcountry_Armenia"
+              ),
+          ],
+          [
+              InlineKeyboardButton(
+                  text="🇦🇿 Азербайджан", callback_data="vcountry_Azerbaijan"
+              )
+          ],
+          [InlineKeyboardButton(text="⬅️ Отмена", callback_data="back_home")],
+      ]
+  )
+  await callback.message.edit_text(
+      "💼 <b>АНКЕТА СОИСКАТЕЛЯ</b>\n\n<b>Шаг 1 из 8: Страна проживания</b>\nВыберите"
+      " вашу страну из списка:",
+      reply_markup=keyboard,
+      parse_mode="HTML",
+  )
+  await callback.answer()
+
+
+@router.callback_query(VacancyForm.country, F.data.startswith("vcountry_"))
+async def process_vacancy_country(callback: CallbackQuery, state: FSMContext):
+  c_code = callback.data.split("_")[1]
+  names = {
+      "Ukraine": "Украина",
+      "Russia": "Россия",
+      "Belarus": "Беларусь",
+      "Kazakhstan": "Казахстан",
+      "Moldova": "Молдова",
+      "Uzbekistan": "Узбекистан",
+      "Kyrgyzstan": "Кыргызстан",
+      "Tajikistan": "Таджикистан",
+      "Georgia": "Грузия",
+      "Armenia": "Армения",
+      "Azerbaijan": "Азербайджан",
+  }
+  selected = names.get(c_code, c_code)
+  curr_info = COUNTRY_CURRENCIES.get(
+      selected, {"code": "USD", "symbol": "USD"}
+  )
+  await state.update_data(
+      country=selected,
+      curr_code=curr_info["code"],
+      curr_symbol=curr_info["symbol"],
+  )
+  await state.set_state(VacancyForm.city)
+  await callback.message.edit_text(
+      f"💼 <b>АНКЕТА СОИСКАТЕЛЯ</b>\n\nСтрана: <b>{selected}</b>\n\n<b>Шаг 2 из"
+      " 8: Город проживания</b>\nВведите название вашего города текстом:",
+      parse_mode="HTML",
+  )
+  await callback.answer()
+
+
+@router.message(VacancyForm.city, F.text)
+async def process_vacancy_city(message: Message, state: FSMContext):
+  await state.update_data(city=message.text.strip())
+  await state.set_state(VacancyForm.name)
+  await message.answer(
+      "💼 <b>АНКЕТА СОИСКАТЕЛЯ</b>\n\n<b>Шаг 3 из 8: Имя</b>\nВведите ваше"
+      " имя (или псевдоним):",
+      parse_mode="HTML",
+  )
+
+
+@router.message(VacancyForm.name, F.text)
+async def process_vacancy_name(message: Message, state: FSMContext):
+  await state.update_data(name=message.text.strip())
+  await state.set_state(VacancyForm.age)
+  await message.answer(
+      "💼 <b>АНКЕТА СОИСКАТЕЛЯ</b>\n\n<b>Шаг 4 из 8: Возраст</b>\nУкажите сколько"
+      " вам лет:",
+      parse_mode="HTML",
+  )
+
+
+@router.message(VacancyForm.age, F.text)
+async def process_vacancy_age(message: Message, state: FSMContext):
+  await state.update_data(age=message.text.strip())
+  await state.set_state(VacancyForm.parameters)
+  await message.answer(
+      "💼 <b>АНКЕТА СОИСКАТЕЛЯ</b>\n\n<b>Шаг 5 из 8: Параметры телосложения</b>\nУкажите"
+      " ваш рост, вес и телосложение (например: <i>185 см, 95 кг, плотное</i>):",
+      parse_mode="HTML",
+  )
+
+
+@router.message(VacancyForm.parameters, F.text)
+async def process_vacancy_parameters(message: Message, state: FSMContext):
+  await state.update_data(parameters=message.text.strip())
+  await state.set_state(VacancyForm.sports_exp)
+  await message.answer(
+      "💼 <b>АНКЕТА СОИСКАТЕЛЯ</b>\n\n<b>Шаг 6 из 8: Спортивный опыт</b>\nКакими"
+      " видами боевых искусств вы занимались, каков стаж, есть ли разряды (КМС,"
+      " Мастер спорта и т.д.)?",
+      parse_mode="HTML",
+  )
+
+
+@router.message(VacancyForm.sports_exp, F.text)
+async def process_vacancy_sports_exp(message: Message, state: FSMContext):
+  await state.update_data(sports_exp=message.text.strip())
+  await state.set_state(VacancyForm.experience)
+  await message.answer(
+      "💼 <b>АНКЕТА СОИСКАТЕЛЯ</b>\n\n<b>Шаг 7 из 8: Опыт работы</b>\nБыл ли у вас"
+      " опыт в подобных делах или сфере услуг? Раскратко опишите:",
+      parse_mode="HTML",
+  )
+
+
+@router.message(VacancyForm.experience, F.text)
+async def process_vacancy_experience(message: Message, state: FSMContext):
+  await state.update_data(experience=message.text.strip())
+  await state.set_state(VacancyForm.photo)
+  await message.answer(
+      "💼 <b>АНКЕТА СОИСКАТЕЛЯ</b>\n\n<b>Шаг 8 из 8: Фотография"
+      " телосложения</b>\n📸 Прикрепите фото актуальной физической формы"
+      " (сделанное в текущий момент с метаданными). <i>Лицо можете замазать для"
+      " безопасности.</i>",
+      parse_mode="HTML",
+  )
+
+
+@router.message(VacancyForm.photo, F.photo)
+async def process_vacancy_photo(message: Message, state: FSMContext):
+  photo_id = message.photo[-1].file_id
+  await state.update_data(photo=photo_id)
+
+  data = await state.get_data()
+  curr_code = data.get("curr_code", "USD")
+  curr_symbol = data.get("curr_symbol", "USD")
+  rate = await get_exchange_rate(curr_code)
+  deposit_usd = 200
+  local_amount = round(deposit_usd * rate)
+  local_str = f"{local_amount:,}".replace(",", " ")
+
+  text = (
+      "✅ <b>Анкета успешно заполнена!</b>\n\n"
+      "Для окончательного трудоустройства в нашу команду и подтверждения"
+      " серьезности ваших намерений необходимо внести гарантийный залог в"
+      " размере <b>200$</b> <i>(≈ "
+      f"{local_str} {curr_symbol})</i>.\n\n"
+      "⚠️ Оплата производится в криптовалюте (USDT). После внесения залога с"
+      " вами свяжется модератор для выдачи первых заданий."
+  )
+
+  keyboard = InlineKeyboardMarkup(
+      inline_keyboard=[
+          [
+              InlineKeyboardButton(
+                  text="💳 Внести залог (Оплатить)",
+                  callback_data="vacancy_pay",
+              )
+          ]
+      ]
+  )
+  await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
+
+
+@router.message(VacancyForm.photo, ~F.photo)
+async def process_vacancy_photo_invalid(message: Message):
+  await message.answer(
+      "⚠️ Пожалуйста, отправьте именно <b>фотографию</b> (картинкой), текстовые"
+      " сообщения не принимаются!"
+  )
+
+
+@router.callback_query(F.data == "vacancy_pay")
+async def process_vacancy_pay(callback: CallbackQuery, state: FSMContext):
+  data = await state.get_data()
+  curr_code = data.get("curr_code", "USD")
+  curr_symbol = data.get("curr_symbol", "USD")
+  rate = await get_exchange_rate(curr_code)
+  deposit_usd = 200
+  local_amount = round(deposit_usd * rate)
+  local_str = f"{local_amount:,}".replace(",", " ")
+
+  text = (
+      "💳 <b>ВНЕСЕНИЕ ЗАЛОГА ДЛЯ ТРУДОУСТРОЙСТВА</b>\n\n"
+      f"• <b>Сумма к оплате:</b> {deposit_usd}$ <i>(≈ {local_str}"
+      f" {curr_symbol})</i>\n"
+      "• <b>Выберите сеть для перевода USDT:</b>"
+  )
+
+  keyboard = InlineKeyboardMarkup(
+      inline_keyboard=[
+          [
+              InlineKeyboardButton(
+                  text="🔴 USDT (TRC-20)", callback_data="vpay_trc20"
+              )
+          ],
+          [
+              InlineKeyboardButton(
+                  text="🟢 USDT (BEP-20)", callback_data="vpay_bep20"
+              )
+          ],
+          [
+              InlineKeyboardButton(
+                  text="🔵 USDT (TON)", callback_data="vpay_ton"
+              )
+          ],
+          [
+              InlineKeyboardButton(
+                  text="⬅️ На главную", callback_data="back_home"
+              )
+          ],
+      ]
+  )
+  await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+  await callback.answer()
+
+
+@router.callback_query(F.data == "vpay_trc20")
+async def vpay_trc20(callback: CallbackQuery):
+  text = (
+      "💳 <b>ОПЛАТА ЗАЛОГА (TRC-20)</b>\n\n"
+      "• <b>Сумма:</b> 200$\n"
+      "• <b>Сеть:</b> TRC-20\n"
+      "• <b>Реквизиты для перевода:</b>\n"
+      "<code>TCRbjQUidQfszDWEMnyWQVUscRj7CoqRTn</code>\n\n"
+      "⚠️ <b>ВНИМАНИЕ!</b>\n"
+      "После перевода обязательно нажмите кнопку ниже и отправьте скриншот"
+      " чека!"
+  )
+  keyboard = InlineKeyboardMarkup(
+      inline_keyboard=[
+          [
+              InlineKeyboardButton(
+                  text="✅ Я оплатил(-а), прикрепить чек",
+                  callback_data="vacancy_ask_receipt",
+              )
+          ]
+      ]
+  )
+  await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+  await callback.answer()
+
+
+@router.callback_query(F.data == "vpay_bep20")
+async def vpay_bep20(callback: CallbackQuery):
+  text = (
+      "💳 <b>ОПЛАТА ЗАЛОГА (BEP-20)</b>\n\n"
+      "• <b>Сумма:</b> 200$\n"
+      "• <b>Сеть:</b> BEP-20\n"
+      "• <b>Реквизиты для перевода:</b>\n"
+      "<code>0x01262ebbea8ffe27236a3ef152fc8a8f7b32ee8e</code>\n\n"
+      "⚠️ <b>ВНИМАНИЕ!</b>\n"
+      "После перевода обязательно нажмите кнопку ниже и отправьте скриншот"
+      " чека!"
+  )
+  keyboard = InlineKeyboardMarkup(
+      inline_keyboard=[
+          [
+              InlineKeyboardButton(
+                  text="✅ Я оплатил(-а), прикрепить чек",
+                  callback_data="vacancy_ask_receipt",
+              )
+          ]
+      ]
+  )
+  await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+  await callback.answer()
+
+
+@router.callback_query(F.data == "vpay_ton")
+async def vpay_ton(callback: CallbackQuery):
+  text = (
+      "💳 <b>ОПЛАТА ЗАЛОГА (TON)</b>\n\n"
+      "• <b>Сумма:</b> 200$\n"
+      "• <b>Сеть:</b> TON\n"
+      "• <b>Реквизиты для перевода:</b>\n"
+      "<code>UQDdeysx3s0eh5wa-2-EAA8uMMWQS0exJVaOTbLvXU2iJmzA</code>\n\n"
+      "⚠️ <b>ВНИМАНИЕ!</b>\n"
+      "После перевода обязательно нажмите кнопку ниже и отправьте скриншот"
+      " чека!"
+  )
+  keyboard = InlineKeyboardMarkup(
+      inline_keyboard=[
+          [
+              InlineKeyboardButton(
+                  text="✅ Я оплатил(-а), прикрепить чек",
+                  callback_data="vacancy_ask_receipt",
+              )
+          ]
+      ]
+  )
+  await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+  await callback.answer()
+
+
+@router.callback_query(F.data == "vacancy_ask_receipt")
+async def vacancy_ask_receipt(callback: CallbackQuery, state: FSMContext):
+  await state.set_state(VacancyForm.receipt)
+  text = (
+      "🧾 <b>Подтверждение залога</b>\n\n"
+      "Пожалуйста, отправьте в чат <b>фотографию или скриншот чека</b> об"
+      " успешном переводе залога."
+  )
+  await callback.message.edit_text(text, parse_mode="HTML")
+  await callback.answer()
+
+
+@router.message(VacancyForm.receipt, F.photo)
+async def process_vacancy_receipt(message: Message, state: FSMContext):
+  final_text = (
+      "✅ <b>Заявка на трудоустройство и чек успешно приняты!</b>\n\n"
+      "Ваша анкета передана руководству на проверку. В ближайшее время с вами"
+      " свяжется модератор и выдаст первые задания."
+  )
+  keyboard = InlineKeyboardMarkup(
+      inline_keyboard=[
+          [
+              InlineKeyboardButton(
+                  text="🏠 На главную", callback_data="back_home"
+              )
+          ]
+      ]
+  )
+  await message.answer(final_text, reply_markup=keyboard, parse_mode="HTML")
+  await state.clear()
+
+
+@router.message(VacancyForm.receipt, ~F.photo)
+async def process_vacancy_receipt_invalid(message: Message):
+  await message.answer(
+      "⚠️ Пожалуйста, отправьте именно <b>фотографию или скриншот чека</b>"
+      " (картинкой)!"
   )
 
 
