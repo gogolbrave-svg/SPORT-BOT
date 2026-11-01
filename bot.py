@@ -56,6 +56,7 @@ COUNTRY_CURRENCIES = {
     "Таджикистан": {"code": "TJS", "symbol": "сом."},
     "Грузия": {"code": "GEL", "symbol": "lari"},
     "Армения": {"code": "AMD", "symbol": "драм"},
+    "Азербайджан": {"code": "AZN", "symbol": "манат"},
 }
 
 
@@ -89,6 +90,7 @@ async def get_exchange_rate(target_currency: str) -> float:
       "TJS": 10.9,
       "GEL": 2.7,
       "AMD": 390.0,
+      "AZN": 1.7,
   }
   return fallback_rates.get(target_currency, 1.0)
 
@@ -500,6 +502,11 @@ async def process_addon(callback: CallbackQuery, state: FSMContext):
                   text="🇦🇲 Армения", callback_data="country_Armenia"
               ),
           ],
+          [
+              InlineKeyboardButton(
+                  text="🇦🇿 Азербайджан", callback_data="country_Azerbaijan"
+              )
+          ],
       ]
   )
   await callback.message.edit_text(
@@ -524,6 +531,7 @@ async def process_country(callback: CallbackQuery, state: FSMContext):
       "Tajikistan": "Таджикистан",
       "Georgia": "Грузия",
       "Armenia": "Армения",
+      "Azerbaijan": "Азербайджан",
   }
   selected = names.get(c_code, c_code)
 
