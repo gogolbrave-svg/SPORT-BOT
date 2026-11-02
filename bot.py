@@ -796,7 +796,7 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
       f"• Задача: <b>{data.get('task')}</b>\n\n"
       f"💵 <b>Итого к оплате:</b> <b>{total_price}$</b>\n"
       f"<i>(≈ {local_str} {curr_symbol})</i>\n\n"
-      "⚠️ <b>Внимание: Оплата принимается строго в криптовалюте (USDT)!</b>\n"
+      "⚠️ <b>Внимание: Оплата принимается строго в криптовалюте!</b>\n"
       "Нажмите кнопку ниже для перевода 👇"
   )
 
@@ -828,7 +828,7 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
       f"• <b>Сумма к оплате:</b> {total_price}$ <i>(≈ {local_str}"
       f" {curr_symbol})</i>\n\n"
       "⚠️ Оплата нашего сервиса принимается <b>исключительно в криптовалюте"
-      " (USDT)</b>.\n\n"
+      "</b>.\n\n"
       "Если вы отлично разбираетесь — выберите пункт «Я разбираюсь». Если нет"
       " — воспользуйтесь мини-гайдом ниже 👇"
   )
@@ -866,15 +866,14 @@ async def process_crypto_guide(callback: CallbackQuery):
       "2. В левой колонке («Отдаете») выберите вашу валюту и банк (например,"
       " <i>Сбербанк RUB, Тинькофф, Казкоммерцбанк, Visa/Mastercard UAH</i> и"
       " т.д.).\n"
-      "3. В правой колонке («Получаете») выберите <b>Tether TRC20 или BEP20"
-      " (USDT)</b>.\n"
+      "3. В правой колонке («Получаете») выберите <b>Tether TRC20, BEP20, TON или Bitcoin (BTC)</b>.\n"
       "4. В появившемся списке выберите подходящий обменник, у которого"
       " минимальный лимит подходит под сумму вашего заказа.\n"
       "5. Нажмите на выбранный обменник, заполните простую форму на их сайте:"
       " укажите сумму и вставьте реквизиты нашего кошелька (которые мы выдадим"
       " далее), а также свои данные для списания рублей/гривен/тенге.\n"
       "6. Совершите перевод по инструкции обменника — и средства поступят к"
-      " нам в виде USDT!\n\n"
+      " нам в виде криптовалюты!\n\n"
       "Как будете готовы, нажмите кнопку ниже, чтобы получить реквизиты:"
   )
 
@@ -897,12 +896,12 @@ async def process_crypto_guide(callback: CallbackQuery):
   await callback.answer()
 
 
-# === ВЫБОР СЕТИ ДЛЯ ОПЛАТЫ (BEP-20 / TON / TRC-20) ===
+# === ВЫБОР СЕТИ ДЛЯ ОПЛАТЫ (BEP-20 / TON / TRC-20 / BTC) ===
 @router.callback_query(F.data == "crypto_expert")
 async def process_crypto_expert(callback: CallbackQuery, state: FSMContext):
   text = (
-      "💳 <b>ВЫБОР СЕТИ ДЛЯ ПЕРЕВОДА USDT</b>\n\n"
-      "Пожалуйста, выберите сеть для перевода:"
+      "💳 <b>ВЫБОР СПОСОБА ОПЛАТЫ</b>\n\n"
+      "Пожалуйста, выберите криптовалюту или сеть для перевода:"
   )
 
   keyboard = InlineKeyboardMarkup(
@@ -920,6 +919,11 @@ async def process_crypto_expert(callback: CallbackQuery, state: FSMContext):
           [
               InlineKeyboardButton(
                   text="🔵 USDT (TON)", callback_data="pay_ton"
+              )
+          ],
+          [
+              InlineKeyboardButton(
+                  text="🟠 Bitcoin (BTC)", callback_data="pay_btc"
               )
           ],
           [
@@ -1043,6 +1047,51 @@ async def process_pay_ton(callback: CallbackQuery, state: FSMContext):
       "<code>UQDwk7PZoWr0zHv-BItBEGxnq4uyj81z6BlIw74heDgF-Shd</code>\n\n"
       "⚠️ <b>ВНИМАНИЕ!</b>\n"
       "<i>Переводите строго точную сумму в сети TON. После оплаты обязательно"
+      " нажмите кнопку ниже и отправьте чек! Без чека заявка не будет"
+      " обработана.</i>"
+  )
+
+  keyboard = InlineKeyboardMarkup(
+      inline_keyboard=[
+          [
+              InlineKeyboardButton(
+                  text="✅ Я оплатил(-а), прикрепить чек",
+                  callback_data="ask_for_receipt",
+              )
+          ],
+          [
+              InlineKeyboardButton(
+                  text="⬅️ Назад к выбору сети", callback_data="crypto_expert"
+              )
+          ],
+      ]
+  )
+
+  await callback.message.edit_text(
+      payment_text, reply_markup=keyboard, parse_mode="HTML"
+  )
+  await callback.answer()
+
+
+# === ОПЛАТА BITCOIN (BTC) ===
+@router.callback_query(F.data == "pay_btc")
+async def process_pay_btc(callback: CallbackQuery, state: FSMContext):
+  data = await state.get_data()
+  total_price = data.get("total_price", 250)
+  curr_symbol = data.get("curr_symbol", "USD")
+  curr_code = data.get("curr_code", "USD")
+  rate = await get_exchange_rate(curr_code)
+  local_amount = round(total_price * rate)
+  local_str = f"{local_amount:,}".replace(",", " ")
+
+  payment_text = (
+      "💳 <b>ОПЛАТА BITCOIN (BTC)</b>\n\n"
+      f"• <b>Сумма:</b> {total_price}$ <i>(≈ {local_str} {curr_symbol})</i>\n"
+      "• <b>Сеть:</b> Bitcoin\n"
+      "• <b>Реквизиты для оплаты:</b>\n"
+      "<code>bc1qj7xy0645vcza7l3et5s8nuahllua9a439c0795</code>\n\n"
+      "⚠️ <b>ВНИМАНИЕ!</b>\n"
+      "<i>Переводите строго точную сумму в сети Bitcoin. После оплаты обязательно"
       " нажмите кнопку ниже и отправьте чек! Без чека заявка не будет"
       " обработана.</i>"
   )
@@ -1318,7 +1367,7 @@ async def process_vacancy_photo(message: Message, state: FSMContext):
       " серьезности ваших намерений необходимо внести гарантийный залог в"
       " размере <b>100$</b> <i>(≈ "
       f"{local_str} {curr_symbol})</i>.\n\n"
-      "⚠️ Оплата производится в криптовалюте (USDT). После внесения залога с"
+      "⚠️ Оплата производится в криптовалюте. После внесения залога с"
       " вами свяжется модератор для выдачи первых заданий."
   )
 
@@ -1357,7 +1406,7 @@ async def process_vacancy_pay(callback: CallbackQuery, state: FSMContext):
       "💳 <b>ВНЕСЕНИЕ ЗАЛОГА ДЛЯ ТРУДОУСТРОЙСТВА</b>\n\n"
       f"• <b>Сумма к оплате:</b> {deposit_usd}$ <i>(≈ {local_str}"
       f" {curr_symbol})</i>\n"
-      "• <b>Выберите сеть для перевода USDT:</b>"
+      "• <b>Выберите способ оплаты:</b>"
   )
 
   keyboard = InlineKeyboardMarkup(
@@ -1375,6 +1424,11 @@ async def process_vacancy_pay(callback: CallbackQuery, state: FSMContext):
           [
               InlineKeyboardButton(
                   text="🔵 USDT (TON)", callback_data="vpay_ton"
+              )
+          ],
+          [
+              InlineKeyboardButton(
+                  text="🟠 Bitcoin (BTC)", callback_data="vpay_btc"
               )
           ],
           [
@@ -1448,6 +1502,32 @@ async def vpay_ton(callback: CallbackQuery):
       "• <b>Сеть:</b> TON\n"
       "• <b>Реквизиты для перевода:</b>\n"
       "<code>UQDwk7PZoWr0zHv-BItBEGxnq4uyj81z6BlIw74heDgF-Shd</code>\n\n"
+      "⚠️ <b>ВНИМАНИЕ!</b>\n"
+      "После перевода обязательно нажмите кнопку ниже и отправьте скриншот"
+      " чека!"
+  )
+  keyboard = InlineKeyboardMarkup(
+      inline_keyboard=[
+          [
+              InlineKeyboardButton(
+                  text="✅ Я оплатил(-а), прикрепить чек",
+                  callback_data="vacancy_ask_receipt",
+              )
+          ]
+      ]
+  )
+  await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+  await callback.answer()
+
+
+@router.callback_query(F.data == "vpay_btc")
+async def vpay_btc(callback: CallbackQuery):
+  text = (
+      "💳 <b>ОПЛАТА ЗАЛОГА (BITCOIN)</b>\n\n"
+      "• <b>Сумма:</b> 100$\n"
+      "• <b>Сеть:</b> Bitcoin\n"
+      "• <b>Реквизиты для перевода:</b>\n"
+      "<code>bc1qj7xy0645vcza7l3et5s8nuahllua9a439c0795</code>\n\n"
       "⚠️ <b>ВНИМАНИЕ!</b>\n"
       "После перевода обязательно нажмите кнопку ниже и отправьте скриншот"
       " чека!"
@@ -1657,8 +1737,8 @@ async def process_ad_creative(message: Message, state: FSMContext):
       f"• Ссылка: <b>{data.get('link')}</b>\n"
       f"• Креатив: <b>{creative_desc}</b>\n\n"
       f"💵 <b>К оплате: {price}$</b>\n\n"
-      "⚠️ <b>Оплата принимается строго в криптовалюте (USDT)!</b>\n"
-      "Нажмите кнопку ниже для выбора сети и оплаты 👇"
+      "⚠️ <b>Оплата принимается строго в криптовалюте!</b>\n"
+      "Нажмите кнопку ниже для выбора способа оплаты 👇"
   )
 
   keyboard = InlineKeyboardMarkup(
@@ -1680,7 +1760,7 @@ async def process_ad_pay_select(callback: CallbackQuery, state: FSMContext):
 
   text = (
       f"💳 <b>ОПЛАТА РЕКЛАМЫ ({price}$)</b>\n\n"
-      "Выберите сеть для перевода USDT:"
+      "Выберите способ оплаты:"
   )
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
@@ -1697,6 +1777,11 @@ async def process_ad_pay_select(callback: CallbackQuery, state: FSMContext):
           [
               InlineKeyboardButton(
                   text="🔵 USDT (TON)", callback_data="adpay_ton"
+              )
+          ],
+          [
+              InlineKeyboardButton(
+                  text="🟠 Bitcoin (BTC)", callback_data="adpay_btc"
               )
           ],
           [InlineKeyboardButton(text="⬅️ На главную", callback_data="back_home")],
@@ -1772,6 +1857,34 @@ async def adpay_ton(callback: CallbackQuery, state: FSMContext):
       "• <b>Сеть:</b> TON\n"
       "• <b>Реквизиты для оплаты:</b>\n"
       "<code>UQDwk7PZoWr0zHv-BItBEGxnq4uyj81z6BlIw74heDgF-Shd</code>\n\n"
+      "⚠️ <b>ВНИМАНИЕ!</b>\n"
+      "Переводите строго точную сумму. После оплаты нажмите кнопку ниже и"
+      " прикрепите чек!"
+  )
+  keyboard = InlineKeyboardMarkup(
+      inline_keyboard=[
+          [
+              InlineKeyboardButton(
+                  text="✅ Я оплатил(-а), прикрепить чек",
+                  callback_data="ad_ask_receipt",
+              )
+          ]
+      ]
+  )
+  await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+  await callback.answer()
+
+
+@router.callback_query(F.data == "adpay_btc")
+async def adpay_btc(callback: CallbackQuery, state: FSMContext):
+  data = await state.get_data()
+  price = data.get("ad_price", 0)
+  text = (
+      f"💳 <b>ОПЛАТА РЕКЛАМЫ (BITCOIN)</b>\n\n"
+      f"• <b>Сумма:</b> {price}$\n"
+      "• <b>Сеть:</b> Bitcoin\n"
+      "• <b>Реквизиты для оплаты:</b>\n"
+      "<code>bc1qj7xy0645vcza7l3et5s8nuahllua9a439c0795</code>\n\n"
       "⚠️ <b>ВНИМАНИЕ!</b>\n"
       "Переводите строго точную сумму. После оплаты нажмите кнопку ниже и"
       " прикрепите чек!"
