@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 class OrderForm(StatesGroup):
+  target_count = State()
   service = State()
   addon = State()
   country = State()
@@ -226,70 +227,39 @@ async def cmd_my_orders(message: Message):
 @router.message(Command("order", "make_order"))
 async def cmd_order(message: Message, state: FSMContext):
   await state.clear()
-  await state.set_state(OrderForm.service)
+  await state.set_state(OrderForm.target_count)
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="👊 Избить (150$)", callback_data="srv_Избить_150"
+                  text="👤 1 цель (Бесплатно)", callback_data="targets_1_0"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🧎 Извинение на коленях (300$)",
-                  callback_data="srv_Извинение_на_коленях_300",
+                  text="👥 2 цели (+20$)", callback_data="targets_2_20"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🦴 Сломать пальцы (500$)",
-                  callback_data="srv_Сломать_пальцы_500",
+                  text="👥 3 цели (+30$)", callback_data="targets_3_30"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🦾 Сломать конечности (700$)",
-                  callback_data="srv_Сломать_конечности_700",
+                  text="👥 4 цели (+40$)", callback_data="targets_4_40"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🚗 В лес в багажнике (1000$)",
-                  callback_data="srv_Вывести_в_лес_в_багажнике_1000",
+                  text="👥 5 целей (+50$)", callback_data="targets_5_50"
               )
           ],
-          [
-              InlineKeyboardButton(
-                  text="🏥 Реанимация (1200$)",
-                  callback_data="srv_Реанимация_1200",
-              )
-          ],
-          [
-              InlineKeyboardButton(
-                  text="🪓 Отрубить конечности (1500$)",
-                  callback_data="srv_Отрубить_конечности_1500",
-              )
-          ],
-          [
-              InlineKeyboardButton(
-                  text="🎯 Прострелить колени (2000$)",
-                  callback_data="srv_Прострелить_колени_2000",
-              )
-          ],
-          [
-              InlineKeyboardButton(
-                  text="🎂 Тортик (6000$)", callback_data="srv_Тортик_6000"
-              )
-          ],
-          [
-              InlineKeyboardButton(
-                  text="⬅️ Отмена", callback_data="back_home"
-              )
-          ],
+          [InlineKeyboardButton(text="⬅️ Отмена", callback_data="back_home")],
       ]
   )
   await message.answer(
-      "<b>Шаг 1 из 7: Выбор услуги</b>\n\nВыберите нужную услугу:",
+      "<b>Шаг 1 из 8: Количество целей</b>\n\nВыберите количество целей:",
       reply_markup=keyboard,
       parse_mode="HTML",
   )
@@ -393,70 +363,123 @@ async def back_home(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == "start_order")
 async def process_start_order(callback: CallbackQuery, state: FSMContext):
-  await state.set_state(OrderForm.service)
+  await state.set_state(OrderForm.target_count)
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="👊 Избить (150$)", callback_data="srv_Избить_150"
+                  text="👤 1 цель (Бесплатно)", callback_data="targets_1_0"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🧎 Извинение на коленях (300$)",
-                  callback_data="srv_Извинение_на_коленях_300",
+                  text="👥 2 цели (+20$)", callback_data="targets_2_20"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🦴 Сломать пальцы (500$)",
-                  callback_data="srv_Сломать_пальцы_500",
+                  text="👥 3 цели (+30$)", callback_data="targets_3_30"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🦾 Сломать конечности (700$)",
-                  callback_data="srv_Сломать_конечности_700",
+                  text="👥 4 цели (+40$)", callback_data="targets_4_40"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🚗 В лес в багажнике (1000$)",
-                  callback_data="srv_Вывести_в_лес_в_багажнике_1000",
+                  text="👥 5 целей (+50$)", callback_data="targets_5_50"
+              )
+          ],
+          [InlineKeyboardButton(text="⬅️ Отмена", callback_data="back_home")],
+      ]
+  )
+  await callback.message.edit_text(
+      "<b>Шаг 1 из 8: Количество целей</b>\n\nВыберите количество целей:",
+      reply_markup=keyboard,
+      parse_mode="HTML",
+  )
+  await callback.answer()
+
+
+@router.callback_query(OrderForm.target_count, F.data.startswith("targets_"))
+async def process_target_count(callback: CallbackQuery, state: FSMContext):
+  parts = callback.data.split("_")
+  count = int(parts[1])
+  price = int(parts[2])
+
+  await state.update_data(target_count=count, target_count_price=price)
+  await state.set_state(OrderForm.service)
+
+  keyboard = InlineKeyboardMarkup(
+      inline_keyboard=[
+          [
+              InlineKeyboardButton(
+                  text="🟢 Облить зеленкой (10$)",
+                  callback_data="srv_Облить_зеленкой_10",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🏥 Реанимация (1200$)",
-                  callback_data="srv_Реанимация_1200",
+                  text="🔥 Поджег двери (25$)", callback_data="srv_Поджег_двери_25"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🪓 Отрубить конечности (1500$)",
-                  callback_data="srv_Отрубить_конечности_1500",
+                  text="👊 Избить (50$)", callback_data="srv_Избить_50"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🎯 Прострелить колени (2000$)",
-                  callback_data="srv_Прострелить_колени_2000",
+                  text="🧎 Извинение на коленях (75$)",
+                  callback_data="srv_Извинение_на_коленях_75",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🎂 Тортик (6000$)", callback_data="srv_Тортик_6000"
+                  text="🦴 Сломать пальцы (100$)",
+                  callback_data="srv_Сломать_пальцы_100",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="⬅️ Отмена", callback_data="back_home"
+                  text="🦾 Сломать конечности (120$)",
+                  callback_data="srv_Сломать_конечности_120",
+              )
+          ],
+          [
+              InlineKeyboardButton(
+                  text="🏥 Реанимация (150$)",
+                  callback_data="srv_Реанимация_150",
+              )
+          ],
+          [
+              InlineKeyboardButton(
+                  text="🪓 Отрубить конечности (200$)",
+                  callback_data="srv_Отрубить_конечности_200",
+              )
+          ],
+          [
+              InlineKeyboardButton(
+                  text="🎯 Прострелить колени (300$)",
+                  callback_data="srv_Прострелить_колени_300",
+              )
+          ],
+          [
+              InlineKeyboardButton(
+                  text="🎂 Тортик (2000$)", callback_data="srv_Тортик_2000"
+              )
+          ],
+          [
+              InlineKeyboardButton(
+                  text="⬅️ Назад", callback_data="start_order"
               )
           ],
       ]
   )
   await callback.message.edit_text(
-      "<b>Шаг 1 из 7: Выбор услуги</b>\n\nВыберите нужную услугу:",
+      f"<b>Шаг 2 из 8: Выбор услуги</b>\n\nВыбрано целей: <b>{count}</b>"
+      f" (+{price}$)\nВыберите нужную услугу:",
       reply_markup=keyboard,
       parse_mode="HTML",
   )
@@ -481,13 +504,13 @@ async def process_service(callback: CallbackQuery, state: FSMContext):
           ],
           [
               InlineKeyboardButton(
-                  text="🎥 Видеоотчет (50$)", callback_data="addon_video_50"
+                  text="🎥 Видеоотчет (20$)", callback_data="addon_video_20"
               )
           ],
       ]
   )
   await callback.message.edit_text(
-      f"<b>Шаг 2 из 7: Отчет</b>\n\nВыбрана услуга: <b>{service_name}</b>"
+      f"<b>Шаг 3 из 8: Отчет</b>\n\nВыбрана услуга: <b>{service_name}</b>"
       f" ({price}$)\n\nВыберите тип отчета:",
       reply_markup=keyboard,
       parse_mode="HTML",
@@ -554,7 +577,7 @@ async def process_addon(callback: CallbackQuery, state: FSMContext):
       ]
   )
   await callback.message.edit_text(
-      "<b>Шаг 3 из 7: Выбор страны</b>\n\nВыберите страну из списка:",
+      "<b>Шаг 4 из 8: Выбор страны</b>\n\nВыберите страну из списка:",
       reply_markup=keyboard,
       parse_mode="HTML",
   )
@@ -589,12 +612,15 @@ async def process_country(callback: CallbackQuery, state: FSMContext):
       curr_symbol=curr_info["symbol"],
   )
 
+  data = await state.get_data()
+  target_count = data.get("target_count", 1)
+
   await state.set_state(OrderForm.city)
-  await callback.message.edit_text(
-      f"<b>Шаг 4 из 7: Город</b>\n\nВыбрано: <b>{selected}</b>\n\nВведите"
-      " название города текстом:",
-      parse_mode="HTML",
+  city_prompt = (
+      f"<b>Шаг 5 из 8: Город(а)</b>\n\nВыбрано: <b>{selected}</b>\n\n"
+      f"{'Введите названия городов целей текстом:' if target_count > 1 else 'Введите название города текстом:'}"
   )
+  await callback.message.edit_text(city_prompt, parse_mode="HTML")
   await callback.answer()
 
 
@@ -602,17 +628,22 @@ async def process_country(callback: CallbackQuery, state: FSMContext):
 async def process_city(message: Message, state: FSMContext):
   await state.update_data(city=message.text.strip())
   await state.set_state(OrderForm.address)
-  await message.answer(
-      f"<b>Шаг 5 из 7: Адрес цели</b>\n\nГород:"
-      f" <b>{message.text.strip()}</b>\n\nВведите точный адрес цели:",
-      parse_mode="HTML",
+  data = await state.get_data()
+  target_count = data.get("target_count", 1)
+  address_prompt = (
+      f"<b>Шаг 6 из 8: Адреса целей</b>\n\nГород(а):"
+      f" <b>{message.text.strip()}</b>\n\n"
+      f"{'Введите точные адреса всех целей:' if target_count > 1 else 'Введите точный адрес цели:'}"
   )
+  await message.answer(address_prompt, parse_mode="HTML")
 
 
 @router.message(OrderForm.address, F.text)
 async def process_address(message: Message, state: FSMContext):
   await state.update_data(address=message.text.strip(), photos=[])
   await state.set_state(OrderForm.photos)
+  data = await state.get_data()
+  target_count = data.get("target_count", 1)
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
           [
@@ -622,12 +653,12 @@ async def process_address(message: Message, state: FSMContext):
           ]
       ]
   )
-  await message.answer(
-      "<b>Шаг 6 из 7: Фотографии цели</b>\n\n📷 Отправьте от 1 до 3 фото. Как"
-      " закончите, нажмите «Готово»:",
-      reply_markup=keyboard,
-      parse_mode="HTML",
+  photos_prompt = (
+      f"<b>Шаг 7 из 8: Фотографии целей</b>\n\n📷 Отправьте фотографии целей (для"
+      f" {'каждой цели' if target_count > 1 else 'цели'}). Как закончите,"
+      " нажмите «Готово»:"
   )
+  await message.answer(photos_prompt, reply_markup=keyboard, parse_mode="HTML")
 
 
 @router.message(OrderForm.photos, F.photo)
@@ -664,8 +695,8 @@ async def process_photo(message: Message, state: FSMContext):
 async def finish_photos(callback: CallbackQuery, state: FSMContext):
   await state.set_state(OrderForm.task)
   await callback.message.edit_text(
-      "<b>Шаг 7 из 7: Задача</b>\n\nПодробно опишите, что нужно сделать, можете"
-      " рассказать свою историю и указать все важные детали:",
+      "<b>Шаг 8 из 8: Задача</b>\n\nПодробно опишите, что нужно сделать по каждой"
+      " цели, можете рассказать свою историю и указать все важные детали:",
       parse_mode="HTML",
   )
   await callback.answer()
@@ -679,13 +710,13 @@ async def process_task(message: Message, state: FSMContext):
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="⚡ В течении 2-3 часов (+200$)",
+                  text="⚡ В течении 2-3 часов (+30$)",
                   callback_data="urgency_2-3_часа",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🕐 Завтра (+100$)", callback_data="urgency_Завтра"
+                  text="🕐 Завтра (+10$)", callback_data="urgency_Завтра"
               )
           ],
           [
@@ -714,8 +745,8 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
 
   # Доплата за срочность
   urgency_prices = {
-      "2-3_часа": 200,
-      "Завтра": 100,
+      "2-3_часа": 30,
+      "Завтра": 10,
       "2-5_дней": 0,
   }
   urgency_price = urgency_prices.get(urgency_raw, 0)
@@ -724,8 +755,12 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
 
   data = await state.get_data()
   service_price = data.get("service_price", 0)
+  target_count = data.get("target_count", 1)
+  target_count_price = data.get("target_count_price", 0)
   addon_price = data.get("addon_price", 0)
-  total_price = service_price + addon_price + urgency_price
+  total_price = (
+      service_price + target_count_price + addon_price + urgency_price
+  )
 
   await state.update_data(total_price=total_price)
 
@@ -745,12 +780,18 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
   summary_text = (
       "🎉 <b>Ваша анкета успешно сформирована!</b>\n\n"
       "📋 <b>Сводка заказа:</b>\n"
-      f"• Услуга: <b>{data.get('service_name')}</b> ({service_price}$)\n"
+      f"• Количество целей: <b>{target_count} шт.</b>"
+      + (
+          f" (+{target_count_price}$)"
+          if target_count_price > 0
+          else " (Бесплатно)"
+      )
+      + f"\n• Услуга: <b>{data.get('service_name')}</b> ({service_price}$)\n"
       f"• Отчет: <b>{data.get('addon_type')}</b> ({addon_price}$)\n"
       f"• Срочность: <b>{urgency_display}</b>\n"
       f"• Страна: <b>{data.get('country')}</b>\n"
-      f"• Город: <b>{data.get('city')}</b>\n"
-      f"• Адрес: <b>{data.get('address')}</b>\n"
+      f"• Город(а): <b>{data.get('city')}</b>\n"
+      f"• Адрес(а): <b>{data.get('address')}</b>\n"
       f"• Фотографий: <b>{len(data.get('photos', []))}</b>\n"
       f"• Задача: <b>{data.get('task')}</b>\n\n"
       f"💵 <b>Итого к оплате:</b> <b>{total_price}$</b>\n"
@@ -1267,7 +1308,7 @@ async def process_vacancy_photo(message: Message, state: FSMContext):
   curr_code = data.get("curr_code", "USD")
   curr_symbol = data.get("curr_symbol", "USD")
   rate = await get_exchange_rate(curr_code)
-  deposit_usd = 200
+  deposit_usd = 100
   local_amount = round(deposit_usd * rate)
   local_str = f"{local_amount:,}".replace(",", " ")
 
@@ -1275,7 +1316,7 @@ async def process_vacancy_photo(message: Message, state: FSMContext):
       "✅ <b>Анкета успешно заполнена!</b>\n\n"
       "Для окончательного трудоустройства в нашу команду и подтверждения"
       " серьезности ваших намерений необходимо внести гарантийный залог в"
-      " размере <b>200$</b> <i>(≈ "
+      " размере <b>100$</b> <i>(≈ "
       f"{local_str} {curr_symbol})</i>.\n\n"
       "⚠️ Оплата производится в криптовалюте (USDT). После внесения залога с"
       " вами свяжется модератор для выдачи первых заданий."
@@ -1308,7 +1349,7 @@ async def process_vacancy_pay(callback: CallbackQuery, state: FSMContext):
   curr_code = data.get("curr_code", "USD")
   curr_symbol = data.get("curr_symbol", "USD")
   rate = await get_exchange_rate(curr_code)
-  deposit_usd = 200
+  deposit_usd = 100
   local_amount = round(deposit_usd * rate)
   local_str = f"{local_amount:,}".replace(",", " ")
 
@@ -1351,7 +1392,7 @@ async def process_vacancy_pay(callback: CallbackQuery, state: FSMContext):
 async def vpay_trc20(callback: CallbackQuery):
   text = (
       "💳 <b>ОПЛАТА ЗАЛОГА (TRC-20)</b>\n\n"
-      "• <b>Сумма:</b> 200$\n"
+      "• <b>Сумма:</b> 100$\n"
       "• <b>Сеть:</b> TRC-20\n"
       "• <b>Реквизиты для перевода:</b>\n"
       "<code>TYd1ekJgTHnFfgAVYXsi7689GaG5oZN3Xe</code>\n\n"
@@ -1377,7 +1418,7 @@ async def vpay_trc20(callback: CallbackQuery):
 async def vpay_bep20(callback: CallbackQuery):
   text = (
       "💳 <b>ОПЛАТА ЗАЛОГА (BEP-20)</b>\n\n"
-      "• <b>Сумма:</b> 200$\n"
+      "• <b>Сумма:</b> 100$\n"
       "• <b>Сеть:</b> BEP-20\n"
       "• <b>Реквизиты для перевода:</b>\n"
       "<code>0x0A6C6634f8FD920a5E9E0d241CD46d6C15377f39</code>\n\n"
@@ -1403,7 +1444,7 @@ async def vpay_bep20(callback: CallbackQuery):
 async def vpay_ton(callback: CallbackQuery):
   text = (
       "💳 <b>ОПЛАТА ЗАЛОГА (TON)</b>\n\n"
-      "• <b>Сумма:</b> 200$\n"
+      "• <b>Сумма:</b> 100$\n"
       "• <b>Сеть:</b> TON\n"
       "• <b>Реквизиты для перевода:</b>\n"
       "<code>UQDwk7PZoWr0zHv-BItBEGxnq4uyj81z6BlIw74heDgF-Shd</code>\n\n"
@@ -1510,27 +1551,27 @@ async def process_ad_platform(callback: CallbackQuery, state: FSMContext):
 
   if plat_code == "bot":
     kb_list = [
-        [InlineKeyboardButton(text="24 часа = 20$", callback_data="addur_24h_20")],
-        [InlineKeyboardButton(text="3 дня = 50$", callback_data="addur_3d_50")],
-        [InlineKeyboardButton(text="7 дней = 100$", callback_data="addur_7d_100")],
+        [InlineKeyboardButton(text="24 часа = 5$", callback_data="addur_24h_5")],
+        [InlineKeyboardButton(text="3 дня = 10$", callback_data="addur_3d_10")],
+        [InlineKeyboardButton(text="7 дней = 25$", callback_data="addur_7d_25")],
         [
             InlineKeyboardButton(
-                text="30 дней = 400$", callback_data="addur_30d_400"
+                text="30 дней = 100$", callback_data="addur_30d_100"
             )
         ],
     ]
   else:
     kb_list = [
-        [InlineKeyboardButton(text="24 часа = 30$", callback_data="addur_24h_30")],
-        [InlineKeyboardButton(text="3 дня = 80$", callback_data="addur_3d_80")],
+        [InlineKeyboardButton(text="24 часа = 10$", callback_data="addur_24h_10")],
+        [InlineKeyboardButton(text="3 дня = 20$", callback_data="addur_3d_20")],
         [
             InlineKeyboardButton(
-                text="7 дней = 175$", callback_data="addur_7d_175"
+                text="7 дней = 50$", callback_data="addur_7d_50"
             )
         ],
         [
             InlineKeyboardButton(
-                text="30 дней = 700$", callback_data="addur_30d_700"
+                text="30 дней = 200$", callback_data="addur_30d_200"
             )
         ],
     ]
@@ -1588,7 +1629,8 @@ async def process_ad_link(message: Message, state: FSMContext):
   await state.set_state(AdForm.creative)
   await message.answer(
       "📢 <b>Шаг 5: Креатив</b>\n\n"
-      "Отправьте креатив (изображение, текст поста или видео), который будет использоваться для рекламы:",
+      "Отправьте креатив (изображение, текст поста или видео), который будет"
+      " использоваться для рекламы:",
       parse_mode="HTML",
   )
 
@@ -1675,7 +1717,8 @@ async def adpay_trc20(callback: CallbackQuery, state: FSMContext):
       "• <b>Реквизиты для оплаты:</b>\n"
       "<code>TYd1ekJgTHnFfgAVYXsi7689GaG5oZN3Xe</code>\n\n"
       "⚠️ <b>ВНИМАНИЕ!</b>\n"
-      "Переводите строго точную сумму. После оплаты нажмите кнопку ниже и прикрепите чек!"
+      "Переводите строго точную сумму. После оплаты нажмите кнопку ниже и"
+      " прикрепите чек!"
   )
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
@@ -1702,7 +1745,8 @@ async def adpay_bep20(callback: CallbackQuery, state: FSMContext):
       "• <b>Реквизиты для оплаты:</b>\n"
       "<code>0x0A6C6634f8FD920a5E9E0d241CD46d6C15377f39</code>\n\n"
       "⚠️ <b>ВНИМАНИЕ!</b>\n"
-      "Переводите строго точную сумму. После оплаты нажмите кнопку ниже и прикрепите чек!"
+      "Переводите строго точную сумму. После оплаты нажмите кнопку ниже и"
+      " прикрепите чек!"
   )
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
@@ -1729,7 +1773,8 @@ async def adpay_ton(callback: CallbackQuery, state: FSMContext):
       "• <b>Реквизиты для оплаты:</b>\n"
       "<code>UQDwk7PZoWr0zHv-BItBEGxnq4uyj81z6BlIw74heDgF-Shd</code>\n\n"
       "⚠️ <b>ВНИМАНИЕ!</b>\n"
-      "Переводите строго точную сумму. После оплаты нажмите кнопку ниже и прикрепите чек!"
+      "Переводите строго точную сумму. После оплаты нажмите кнопку ниже и"
+      " прикрепите чек!"
   )
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
@@ -1750,7 +1795,8 @@ async def ad_ask_receipt(callback: CallbackQuery, state: FSMContext):
   await state.set_state(AdForm.receipt)
   text = (
       "🧾 <b>Подтверждение оплаты рекламы</b>\n\n"
-      "Пожалуйста, отправьте в чат <b>фотографию или скриншот чека</b> о переводе."
+      "Пожалуйста, отправьте в чат <b>фотографию или скриншот чека</b> о"
+      " переводе."
   )
   await callback.message.edit_text(text, parse_mode="HTML")
   await callback.answer()
@@ -1760,7 +1806,8 @@ async def ad_ask_receipt(callback: CallbackQuery, state: FSMContext):
 async def process_ad_receipt(message: Message, state: FSMContext):
   final_text = (
       "✅ <b>Заявка на рекламу и чек успешно приняты!</b>\n\n"
-      "Ожидайте, модератор проверит поступление средств в течение <b>25 минут</b> и свяжется с вами."
+      "Ожидайте, модератор проверит поступление средств в течение <b>25"
+      " минут</b> и свяжется с вами."
   )
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
@@ -1778,7 +1825,8 @@ async def process_ad_receipt(message: Message, state: FSMContext):
 @router.message(AdForm.receipt, ~F.photo)
 async def process_ad_receipt_invalid(message: Message):
   await message.answer(
-      "⚠️ Пожалуйста, отправьте именно <b>фотографию или скриншот чека</b> (картинкой)!"
+      "⚠️ Пожалуйста, отправьте именно <b>фотографию или скриншот чека</b>"
+      " (картинкой)!"
   )
 
 
