@@ -881,7 +881,7 @@ async def process_crypto_guide(callback: CallbackQuery):
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="🟢 Перейти к выбору сети", callback_data="crypto_expert"
+                  text="🟢 Перейти к выбору способа оплаты", callback_data="crypto_expert"
               )
           ],
           [
@@ -896,7 +896,7 @@ async def process_crypto_guide(callback: CallbackQuery):
   await callback.answer()
 
 
-# === ВЫБОР СЕТИ ДЛЯ ОПЛАТЫ (BEP-20 / TON / TRC-20 / BTC) ===
+# === ВЫБОР СПОСОБА ОПЛАТЫ (BEP-20 / TON / TRC-20 / BTC) ===
 @router.callback_query(F.data == "crypto_expert")
 async def process_crypto_expert(callback: CallbackQuery, state: FSMContext):
   text = (
@@ -918,7 +918,7 @@ async def process_crypto_expert(callback: CallbackQuery, state: FSMContext):
           ],
           [
               InlineKeyboardButton(
-                  text="🔵 USDT (TON)", callback_data="pay_ton"
+                  text="🔵 TON", callback_data="pay_ton"
               )
           ],
           [
@@ -971,7 +971,7 @@ async def process_pay_trc20(callback: CallbackQuery, state: FSMContext):
           ],
           [
               InlineKeyboardButton(
-                  text="⬅️ Назад к выбору сети", callback_data="crypto_expert"
+                  text="⬅️ Назад к выбору способа оплаты", callback_data="crypto_expert"
               )
           ],
       ]
@@ -1016,7 +1016,7 @@ async def process_pay_bep20(callback: CallbackQuery, state: FSMContext):
           ],
           [
               InlineKeyboardButton(
-                  text="⬅️ Назад к выбору сети", callback_data="crypto_expert"
+                  text="⬅️ Назад к выбору способа оплаты", callback_data="crypto_expert"
               )
           ],
       ]
@@ -1040,7 +1040,7 @@ async def process_pay_ton(callback: CallbackQuery, state: FSMContext):
   local_str = f"{local_amount:,}".replace(",", " ")
 
   payment_text = (
-      "💳 <b>ОПЛАТА USDT (TON)</b>\n\n"
+      "💳 <b>ОПЛАТА TON</b>\n\n"
       f"• <b>Сумма:</b> {total_price}$ <i>(≈ {local_str} {curr_symbol})</i>\n"
       "• <b>Сеть:</b> TON\n"
       "• <b>Реквизиты для оплаты:</b>\n"
@@ -1061,7 +1061,7 @@ async def process_pay_ton(callback: CallbackQuery, state: FSMContext):
           ],
           [
               InlineKeyboardButton(
-                  text="⬅️ Назад к выбору сети", callback_data="crypto_expert"
+                  text="⬅️ Назад к выбору способа оплаты", callback_data="crypto_expert"
               )
           ],
       ]
@@ -1106,7 +1106,7 @@ async def process_pay_btc(callback: CallbackQuery, state: FSMContext):
           ],
           [
               InlineKeyboardButton(
-                  text="⬅️ Назад к выбору сети", callback_data="crypto_expert"
+                  text="⬅️ Назад к выбору способа оплаты", callback_data="crypto_expert"
               )
           ],
       ]
@@ -1423,7 +1423,7 @@ async def process_vacancy_pay(callback: CallbackQuery, state: FSMContext):
           ],
           [
               InlineKeyboardButton(
-                  text="🔵 USDT (TON)", callback_data="vpay_ton"
+                  text="🔵 TON", callback_data="vpay_ton"
               )
           ],
           [
@@ -1776,7 +1776,7 @@ async def process_ad_pay_select(callback: CallbackQuery, state: FSMContext):
           ],
           [
               InlineKeyboardButton(
-                  text="🔵 USDT (TON)", callback_data="adpay_ton"
+                  text="🔵 TON", callback_data="adpay_ton"
               )
           ],
           [
