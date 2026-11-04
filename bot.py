@@ -444,7 +444,7 @@ async def process_target_count(callback: CallbackQuery, state: FSMContext):
           ],
           [
               InlineKeyboardButton(
-                  text="🦴 Сломать конечности (500$)",
+                  text="🦿 Сломать конечности (500$)",
                   callback_data="srv_Сломать_конечности_500",
               )
           ],
@@ -456,13 +456,13 @@ async def process_target_count(callback: CallbackQuery, state: FSMContext):
           ],
           [
               InlineKeyboardButton(
-                  text="⚠️ Отрубить конечности (1000$)",
+                  text="🪓 Отрубить конечности (1000$)",
                   callback_data="srv_Отрубить_конечности_1000",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🎯 Прострелить колени (1500$)",
+                  text="🏹 Прострелить колени (1500$)",
                   callback_data="srv_Прострелить_колени_1500",
               )
           ],
