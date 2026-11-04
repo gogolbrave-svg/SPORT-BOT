@@ -468,7 +468,7 @@ async def process_target_count(callback: CallbackQuery, state: FSMContext):
           ],
           [
               InlineKeyboardButton(
-                  text="🎂 Тортик (7000$)", callback_data="srv_Тортик_7000"
+                  text="🎂 Тортик (6000$)", callback_data="srv_Тортик_6000"
               )
           ],
           [
