@@ -36,7 +36,7 @@ class OrderForm(StatesGroup):
   photos = State()
   task = State()
   urgency = State()
-  receipt = State()
+  receipt = State()  # Состояние для ожидания чека
 
 
 class VacancyForm(StatesGroup):
@@ -101,6 +101,7 @@ async def get_exchange_rate(target_currency: str) -> float:
         " резервные значения."
     )
 
+  # Резервные средние курсы на случай недоступности API
   fallback_rates = {
       "UAH": 41.5,
       "RUB": 95.0,
@@ -130,16 +131,15 @@ async def get_reputation_text_and_keyboard():
   new_requests = rng.randint(30, 80)
 
   text = (
-      "📊 <b>СТАТИСТИКА И РЕПУТАЦИЯ СЕРВИСА</b>\n"
-      "━━━━━━━━━━━━━━━━━━━\n\n"
-      f"🛡️ Успешно выполненных задач: <b>{completed}</b>\n"
-      f"⚡ Активных проектов в работе: <b>{in_progress}</b>\n"
-      f"📥 Новых заявок за сутки: <b>{new_requests}</b>\n\n"
-      "<i>⚡ Высочайшие стандарты конфиденциальности, оперативности и безопасности.</i>"
+      "📊 <b>Наша статистика и репутация:</b>\n\n"
+      f"• Выполненных заказов: <b>{completed}</b>\n"
+      f"• Заказов в работе: <b>{in_progress}</b>\n"
+      f"• Новых заявок: <b>{new_requests}</b>\n\n"
+      "<i>Мы дорожим своей репутацией и гарантируем конфиденциальность.</i>"
   )
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
-          [InlineKeyboardButton(text="◀️ На главную", callback_data="back_home")]
+          [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_home")]
       ]
   )
   return text, keyboard
@@ -153,41 +153,41 @@ async def cmd_start(message: Message, state: FSMContext):
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="💎 Оформить заказ", callback_data="start_order"
+                  text="🛒 Сделать заказ", callback_data="start_order"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="📂 Мои заказы", callback_data="my_orders"
+                  text="📦 Мои заказы", callback_data="my_orders"
               ),
               InlineKeyboardButton(
-                  text="📈 Репутация", callback_data="reputation"
+                  text="📊 Наша репутация", callback_data="reputation"
               ),
           ],
           [
               InlineKeyboardButton(
-                  text="📢 Размещение рекламы", callback_data="start_ads"
+                  text="🤝 Сотрудничество (Купить рекламу)",
+                  callback_data="start_ads",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="💬 Поддержка / Администратор",
+                  text="💬 Связаться с администратором",
                   callback_data="contact_admin",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="⚡ Карьера в команде", callback_data="start_vacancy"
+                  text="💼 Работа в команде", callback_data="start_vacancy"
               )
           ],
       ]
   )
   text = (
-      "🛡️ <b>ПЕРИМЕТР БЕЗОПАСНОСТИ И СПЕЦУСЛУГ</b>\n"
-      "━━━━━━━━━━━━━━━━━━━\n\n"
-      "Добро пожаловать в защищенный операционный центр.\n"
-      "Мы предоставляем эксклюзивный спектр решений с гарантией абсолютной конфиденциальности.\n\n"
-      "👇 <i>Выберите необходимый раздел в меню ниже:</i>"
+      "<b>Добро пожаловать в сервис «СПОРТ УСЛУГИ»!</b> 🏅\n\n"
+      "Мы предоставляем профессиональные услуги и решение ваших задач быстро, "
+      "качественно и конфиденциально.\n\n"
+      "Выберите нужный пункт в меню ниже:"
   )
   await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
 
@@ -205,16 +205,15 @@ async def cmd_my_orders(message: Message):
 
   if not orders:
     text = (
-        "📂 <b>МОИ ОПЕРАЦИИ</b>\n━━━━━━━━━━━━━━━━━━━\n\nУ вас пока нет активных"
-        " или завершенных заказов в системе."
+        "📦 <b>Мои заказы</b>\n\nУ вас пока нет активных или завершенных"
+        " заказов."
     )
   else:
-    text = "📂 <b>ВАШИ АКТИВНЫЕ ОПЕРАЦИИ:</b>\n━━━━━━━━━━━━━━━━━━━\n\n"
+    text = "📦 <b>Ваши заказы:</b>\n\n"
     for idx, ord_data in enumerate(orders, 1):
       text += (
-          f"🔹 <b>Заказ #{idx}</b>\n• Услуга: {ord_data['service_name']}\n•"
-          f" Сумма: {ord_data['total_price']}$\n• Статус:"
-          f" {ord_data['status']}\n\n"
+          f"<b>Заказ #{idx}</b>\n• Услуга: {ord_data['service_name']}\n• Сумма:"
+          f" {ord_data['total_price']}$\n• Статус: {ord_data['status']}\n\n"
       )
 
   keyboard = InlineKeyboardMarkup(
@@ -233,7 +232,7 @@ async def cmd_order(message: Message, state: FSMContext):
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="👤 1 цель (Базовый тариф)", callback_data="targets_1_0"
+                  text="👤 1 цель (Бесплатно)", callback_data="targets_1_0"
               )
           ],
           [
@@ -256,12 +255,11 @@ async def cmd_order(message: Message, state: FSMContext):
                   text="👥 5 целей (+200$)", callback_data="targets_5_200"
               )
           ],
-          [InlineKeyboardButton(text="❌ Отмена", callback_data="back_home")],
+          [InlineKeyboardButton(text="⬅️ Отмена", callback_data="back_home")],
       ]
   )
   await message.answer(
-      "🎯 <b>ЭТАП 1 из 8: МАСШТАБ ОПЕРАЦИИ</b>\n━━━━━━━━━━━━━━━━━━━\n\nВыберите"
-      " количество целей для выполнения задачи:",
+      "<b>Шаг 1 из 8: Количество целей</b>\n\nВыберите количество целей:",
       reply_markup=keyboard,
       parse_mode="HTML",
   )
@@ -277,13 +275,12 @@ async def show_reputation(callback: CallbackQuery):
 @router.callback_query(F.data == "contact_admin")
 async def contact_admin_info(callback: CallbackQuery):
   text = (
-      "💬 <b>СВЯЗЬ С АДМИНИСТРАЦИЕЙ</b>\n━━━━━━━━━━━━━━━━━━━\n\nСистема"
-      " автоматизации:\nМодератор оперативно свяжется с вами сразу после"
-      " подтверждения оплаты заказа."
+      "💬 <b>Связь с администрацией</b>\n\n"
+      "Модератор с вами сам свяжется после оплаты заказа."
   )
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
-          [InlineKeyboardButton(text="◀️ Назад", callback_data="back_home")]
+          [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_home")]
       ]
   )
   await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
@@ -297,21 +294,20 @@ async def show_my_orders(callback: CallbackQuery):
 
   if not orders:
     text = (
-        "📂 <b>МОИ ОПЕРАЦИИ</b>\n━━━━━━━━━━━━━━━━━━━\n\nУ вас пока нет активных"
-        " или завершенных заказов в системе."
+        "📦 <b>Мои заказы</b>\n\nУ вас пока нет активных или завершенных"
+        " заказов."
     )
   else:
-    text = "📂 <b>ВАШИ АКТИВНЫЕ ОПЕРАЦИИ:</b>\n━━━━━━━━━━━━━━━━━━━\n\n"
+    text = "📦 <b>Ваши заказы:</b>\n\n"
     for idx, ord_data in enumerate(orders, 1):
       text += (
-          f"🔹 <b>Заказ #{idx}</b>\n• Услуга: {ord_data['service_name']}\n•"
-          f" Сумма: {ord_data['total_price']}$\n• Статус:"
-          f" {ord_data['status']}\n\n"
+          f"<b>Заказ #{idx}</b>\n• Услуга: {ord_data['service_name']}\n• Сумма:"
+          f" {ord_data['total_price']}$\n• Статус: {ord_data['status']}\n\n"
       )
 
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
-          [InlineKeyboardButton(text="🏠 На главную", callback_data="back_home")]
+          [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_home")]
       ]
   )
   await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
@@ -325,41 +321,41 @@ async def back_home(callback: CallbackQuery, state: FSMContext):
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="💎 Оформить заказ", callback_data="start_order"
+                  text="🛒 Сделать заказ", callback_data="start_order"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="📂 Мои заказы", callback_data="my_orders"
+                  text="📦 Мои заказы", callback_data="my_orders"
               ),
               InlineKeyboardButton(
-                  text="📈 Репутация", callback_data="reputation"
+                  text="📊 Наша репутация", callback_data="reputation"
               ),
           ],
           [
               InlineKeyboardButton(
-                  text="📢 Размещение рекламы", callback_data="start_ads"
+                  text="🤝 Сотрудничество (Купить рекламу)",
+                  callback_data="start_ads",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="💬 Поддержка / Администратор",
+                  text="💬 Связаться с администратором",
                   callback_data="contact_admin",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="⚡ Карьера в команде", callback_data="start_vacancy"
+                  text="💼 Работа в команде", callback_data="start_vacancy"
               )
           ],
       ]
   )
   text = (
-      "🛡️ <b>ПЕРИМЕТР БЕЗОПАСНОСТИ И СПЕЦУСЛУГ</b>\n"
-      "━━━━━━━━━━━━━━━━━━━\n\n"
-      "Добро пожаловать в защищенный операционный центр.\n"
-      "Мы предоставляем эксклюзивный спектр решений с гарантией абсолютной конфиденциальности.\n\n"
-      "👇 <i>Выберите необходимый раздел в меню ниже:</i>"
+      "<b>Добро пожаловать в сервис «СПОРТ УСЛУГИ»!</b> 🏅\n\n"
+      "Мы предоставляем профессиональные услуги и решение ваших задач быстро, "
+      "качественно и конфиденциально.\n\n"
+      "Выберите нужный пункт в меню ниже:"
   )
   await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
   await callback.answer()
@@ -372,7 +368,7 @@ async def process_start_order(callback: CallbackQuery, state: FSMContext):
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="👤 1 цель (Базовый тариф)", callback_data="targets_1_0"
+                  text="👤 1 цель (Бесплатно)", callback_data="targets_1_0"
               )
           ],
           [
@@ -395,12 +391,11 @@ async def process_start_order(callback: CallbackQuery, state: FSMContext):
                   text="👥 5 целей (+200$)", callback_data="targets_5_200"
               )
           ],
-          [InlineKeyboardButton(text="❌ Отмена", callback_data="back_home")],
+          [InlineKeyboardButton(text="⬅️ Отмена", callback_data="back_home")],
       ]
   )
   await callback.message.edit_text(
-      "🎯 <b>ЭТАП 1 из 8: МАСШТАБ ОПЕРАЦИИ</b>\n━━━━━━━━━━━━━━━━━━━\n\nВыберите"
-      " количество целей для выполнения задачи:",
+      "<b>Шаг 1 из 8: Количество целей</b>\n\nВыберите количество целей:",
       reply_markup=keyboard,
       parse_mode="HTML",
   )
@@ -420,75 +415,72 @@ async def process_target_count(callback: CallbackQuery, state: FSMContext):
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="🟢 Ликвидация репутации (Зеленка) — 30$",
-                  callback_data="srv_Ликвидация_репутации_(Зеленка)_30",
+                  text="🟢 Облить зеленкой (30$)",
+                  callback_data="srv_Облить_зеленкой_30",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🔥 Термический кейс (Дверь) — 70$",
-                  callback_data="srv_Термический_кейс_(Дверь)_70",
+                  text="🔥 Поджег дверей (70$)",
+                  callback_data="srv_Поджег_дверей_70",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🥊 Физическое воздействие — 150$",
-                  callback_data="srv_Физическое_воздействие_150",
+                  text="🥊 Избить (150$)", callback_data="srv_Избить_150"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🧎‍♂️ Публичное извинение (Колени) — 200$",
-                  callback_data="srv_Публичное_извинение_(Колени)_200",
+                  text="🧎‍♂️ Извинение на коленях (200$)",
+                  callback_data="srv_Извинение_на_коленях_200",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🦴 Хирургия костей (Пальцы) — 300$",
-                  callback_data="srv_Хирургия_костей_(Пальцы)_300",
+                  text="🦴 Сломать пальцы (300$)",
+                  callback_data="srv_Сломать_пальцы_300",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🦴 Перелом конечностей — 500$",
-                  callback_data="srv_Перелом_конечностей_500",
+                  text="🦴 Сломать конечности (500$)",
+                  callback_data="srv_Сломать_конечности_500",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🏥 Медицинский кейс (Реанимация) — 800$",
-                  callback_data="srv_Медицинский_кейс_(Реанимация)_800",
+                  text="🏥 Реанимация (800$)",
+                  callback_data="srv_Реанимация_800",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="⚠️ Радикальный метод (Конечности) — 1000$",
-                  callback_data="srv_Радикальный_метод_(Конечности)_1000",
+                  text="⚠️ Отрубить конечности (1000$)",
+                  callback_data="srv_Отрубить_конечности_1000",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🎯 Спецоперация «Колени» — 1500$",
-                  callback_data="srv_Спецоперация_«Колени»_1500",
+                  text="🎯 Прострелить колени (1500$)",
+                  callback_data="srv_Прострелить_колени_1500",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🎂 VIP-проект «Тортик» — 6000$",
-                  callback_data="srv_VIP-проект_«Тортик»_6000",
+                  text="🎂 Тортик (6000$)", callback_data="srv_Тортик_6000"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="◀️ Назад", callback_data="start_order"
+                  text="⬅️ Назад", callback_data="start_order"
               )
           ],
       ]
   )
   await callback.message.edit_text(
-      f"🛡️ <b>ЭТАП 2 из 8: ВЫБОР УСЛУГИ</b>\n━━━━━━━━━━━━━━━━━━━\nВыбрано"
-      f" целей: <b>{count} шт.</b> (+{price}$)\n\nВыберите категорию"
-      " воздействия:",
+      f"<b>Шаг 2 из 8: Выбор услуги</b>\n\nВыбрано целей: <b>{count}</b>"
+      f" (+{price}$)\nВыберите нужную услугу:",
       reply_markup=keyboard,
       parse_mode="HTML",
   )
@@ -508,22 +500,19 @@ async def process_service(callback: CallbackQuery, state: FSMContext):
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="📷 Фото-фиксация отчета (Бесплатно)",
-                  callback_data="addon_photo_0",
+                  text="📸 Фотоотчет (Бесплатно)", callback_data="addon_photo_0"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🎥 Полный видеоотчет HD (+50$)",
-                  callback_data="addon_video_50",
+                  text="🎥 Видеотчет (50$)", callback_data="addon_video_50"
               )
           ],
       ]
   )
   await callback.message.edit_text(
-      f"📸 <b>ЭТАП 3 из 8: ФОРМАТ ОТЧЕТА</b>\n━━━━━━━━━━━━━━━━━━━\nВыбранная"
-      f" услуга: <b>{service_name}</b> ({price}$)\n\nВыберите способ фиксации"
-      " результата:",
+      f"<b>Шаг 3 из 8: Отчет</b>\n\nВыбрана услуга: <b>{service_name}</b>"
+      f" ({price}$)\n\nВыберите тип отчета:",
       reply_markup=keyboard,
       parse_mode="HTML",
   )
@@ -534,7 +523,7 @@ async def process_service(callback: CallbackQuery, state: FSMContext):
 async def process_addon(callback: CallbackQuery, state: FSMContext):
   parts = callback.data.split("_")
   addon_price = int(parts[-1])
-  addon_type = "Видеоотчет HD" if addon_price > 0 else "Фотоотчет"
+  addon_type = "Видеотчет" if addon_price > 0 else "Фотоотчет"
 
   await state.update_data(addon_type=addon_type, addon_price=addon_price)
   await state.set_state(OrderForm.country)
@@ -589,8 +578,7 @@ async def process_addon(callback: CallbackQuery, state: FSMContext):
       ]
   )
   await callback.message.edit_text(
-      "🌍 <b>ЭТАП 4 из 8: ВЫБОР СТРАНЫ</b>\n━━━━━━━━━━━━━━━━━━━\nУкажите регион"
-      " проведения операции:",
+      "<b>Шаг 4 из 8: Выбор страны</b>\n\nВыберите страну из списка:",
       reply_markup=keyboard,
       parse_mode="HTML",
   )
@@ -629,9 +617,8 @@ async def process_country(callback: CallbackQuery, state: FSMContext):
 
   await state.set_state(OrderForm.city)
   city_prompt = (
-      f"🏙️ <b>ЭТАП 5 из 8: ГОРОД ОПЕРАЦИИ</b>\n━━━━━━━━━━━━━━━━━━━\nРегион:"
-      f" <b>{selected}</b>\n\n"
-      f"{'Введите названия городов для каждой цели текстом:' if target_count > 1 else 'Введите название населенного пункта текстом:'}"
+      f"<b>Шаг 5 из 8: Город(а)</b>\n\nВыбрано: <b>{selected}</b>\n\n"
+      f"{'Введите названия городов целей текстом:' if target_count > 1 else 'Введите название города текстом:'}"
   )
   await callback.message.edit_text(city_prompt, parse_mode="HTML")
   await callback.answer()
@@ -644,9 +631,9 @@ async def process_city(message: Message, state: FSMContext):
   data = await state.get_data()
   target_count = data.get("target_count", 1)
   address_prompt = (
-      f"📍 <b>ЭТАП 6 из 8: ТОЧНЫЕ АДРЕСА</b>\n━━━━━━━━━━━━━━━━━━━\nГород(а):"
+      f"<b>Шаг 6 из 8: Адреса целей</b>\n\nГород(а):"
       f" <b>{message.text.strip()}</b>\n\n"
-      f"{'Укажите точные адреса для всех целей:' if target_count > 1 else 'Укажите точный адрес цели:'}"
+      f"{'Введите точные адреса всех целей:' if target_count > 1 else 'Введите точный адрес цели:'}"
   )
   await message.answer(address_prompt, parse_mode="HTML")
 
@@ -661,15 +648,15 @@ async def process_address(message: Message, state: FSMContext):
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="⏩ Пропустить / Готово без фото",
-                  callback_data="finish_photos",
+                  text="✅ Готово / Без фото", callback_data="finish_photos"
               )
           ]
       ]
   )
   photos_prompt = (
-      f"📷 <b>ЭТАП 7 из 8: МАТЕРИАЛЫ И ФОТО</b>\n━━━━━━━━━━━━━━━━━━━\nПрикрепите"
-      f" фотографии объектов (до 3 шт. для {'каждой цели' if target_count > 1 else 'цели'}).\n\nКак закончите, нажмите кнопку ниже:"
+      f"<b>Шаг 7 из 8: Фотографии целей</b>\n\n📷 Отправьте фотографии целей (для"
+      f" {'каждой цели' if target_count > 1 else 'цели'}). Как закончите,"
+      " нажмите «Готово»:"
   )
   await message.answer(photos_prompt, reply_markup=keyboard, parse_mode="HTML")
 
@@ -679,9 +666,7 @@ async def process_photo(message: Message, state: FSMContext):
   data = await state.get_data()
   photos = data.get("photos", [])
   if len(photos) >= 3:
-    await message.answer(
-        "⚠️ Достигнут лимит в 3 фотографии. Нажмите «Готово»."
-    )
+    await message.answer("⚠️ Уже добавлено 3 фото. Нажмите кнопку «Готово».")
     return
 
   photos.append(message.photo[-1].file_id)
@@ -690,7 +675,7 @@ async def process_photo(message: Message, state: FSMContext):
   btn_text = (
       f"✅ Готово ({len(photos)}/3)"
       if len(photos) < 3
-      else "✅ Готово (3/3) — Далее ⏩"
+      else "✅ Готово (3/3) — Далее"
   )
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
@@ -702,7 +687,7 @@ async def process_photo(message: Message, state: FSMContext):
       ]
   )
   await message.answer(
-      f"📸 Фотография #{len(photos)} успешно загружена!", reply_markup=keyboard
+      f"📸 Фото #{len(photos)} загружено!", reply_markup=keyboard
   )
 
 
@@ -710,9 +695,8 @@ async def process_photo(message: Message, state: FSMContext):
 async def finish_photos(callback: CallbackQuery, state: FSMContext):
   await state.set_state(OrderForm.task)
   await callback.message.edit_text(
-      "📝 <b>ЭТАП 8 из 8: ДЕТАЛИ ЗАДАЧИ</b>\n━━━━━━━━━━━━━━━━━━━\nОпишите"
-      " подробные инструкции, вводные данные или контекст для выполнения"
-      " операции:",
+      "<b>Шаг 8 из 8: Задача</b>\n\nПодробно опишите, что нужно сделать по каждой"
+      " цели, можете рассказать свою историю и указать все важные детали:",
       parse_mode="HTML",
   )
   await callback.answer()
@@ -726,27 +710,24 @@ async def process_task(message: Message, state: FSMContext):
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="⚡ Экстренно (2-3 часа) — +80$",
+                  text="⚡ В течении 2-3 часов (+80$)",
                   callback_data="urg_fast_80",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🕐 Ускоренно (Завтра) — +50$",
-                  callback_data="urg_tomorrow_50",
+                  text="🕐 Завтра (+50$)", callback_data="urg_tomorrow_50"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="📅 Стандарт (2-5 дней) — Бесплатно",
-                  callback_data="urg_standard_0",
+                  text="📅 2-5 дней (Бесплатно)", callback_data="urg_standard_0"
               )
           ],
       ]
   )
   await message.answer(
-      "⏱️ <b>СРОЧНОСТЬ ВЫПОЛНЕНИЯ</b>\n━━━━━━━━━━━━━━━━━━━\nВыберите"
-      " приоритет выполнения заказа:",
+      "<b>Срочность выполнения</b>\n\nВыберите срочность:",
       reply_markup=keyboard,
       parse_mode="HTML",
   )
@@ -759,11 +740,11 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
   urg_price = int(parts[2])
 
   urg_map = {
-      "fast": "⚡ Экстренно (2-3 часа)",
-      "tomorrow": "🕐 Ускоренно (Завтра)",
-      "standard": "📅 Стандарт (2-5 дней)",
+      "fast": "⚡ В течении 2-3 часов",
+      "tomorrow": "🕐 Завтра",
+      "standard": "📅 2-5 дней",
   }
-  urgency = urg_map.get(urg_type, "📅 Стандарт (2-5 дней)")
+  urgency = urg_map.get(urg_type, "📅 2-5 дней")
 
   await state.update_data(urgency=urgency, urgency_price=urg_price)
 
@@ -791,14 +772,13 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
   )
 
   summary_text = (
-      "🎉 <b>АНКЕТА УСПЕШНО СФОРМИРОВАНА</b>\n"
-      "━━━━━━━━━━━━━━━━━━━\n\n"
-      f"📋 <b>Сводка операции:</b>\n"
+      "🎉 <b>Ваша анкета успешно сформирована!</b>\n\n"
+      "📋 <b>Сводка заказа:</b>\n"
       f"• Количество целей: <b>{target_count} шт.</b>"
       + (
           f" (+{target_count_price}$)"
           if target_count_price > 0
-          else " (Базово)"
+          else " (Бесплатно)"
       )
       + f"\n• Услуга: <b>{data.get('service_name')}</b> ({service_price}$)\n"
       f"• Отчет: <b>{data.get('addon_type')}</b> ({addon_price}$)\n"
@@ -806,21 +786,17 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
       f"• Страна: <b>{data.get('country')}</b>\n"
       f"• Город(а): <b>{data.get('city')}</b>\n"
       f"• Адрес(а): <b>{data.get('address')}</b>\n"
-      f"• Медиафайлов: <b>{len(data.get('photos', []))} шт.</b>\n"
+      f"• Фотографий: <b>{len(data.get('photos', []))}</b>\n"
       f"• Задача: <b>{data.get('task')}</b>\n\n"
       f"💵 <b>Итого к оплате:</b> <b>{total_price}$</b>\n"
       f"<i>(≈ {local_str} {curr_symbol})</i>\n\n"
-      "⚠️ <b>Внимание: Оплата принимается исключительно в криптовалюте.</b>\n"
-      "Нажмите кнопку ниже для перехода к плателю 👇"
+      "⚠️ <b>Внимание: Оплата принимается строго в криптовалюте!</b>\n"
+      "Нажмите кнопку ниже для перевода 👇"
   )
 
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
-          [
-              InlineKeyboardButton(
-                  text="💳 Перейти к оплате", callback_data="go_to_payment"
-              )
-          ]
+          [InlineKeyboardButton(text="💳 Оплатить", callback_data="go_to_payment")]
       ]
   )
 
@@ -842,25 +818,26 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   local_str = f"{local_amount:,}".replace(",", " ")
 
   text = (
-      "💳 <b>БРОНИРОВАНИЕ ОПЛАТЫ</b>\n"
-      "━━━━━━━━━━━━━━━━━━━\n\n"
-      f"• <b>Сумма к списанию:</b> <b>{total_price}$</b> <i>(≈ {local_str}"
+      "💳 <b>ОПЛАТА ЗАКАЗА</b>\n\n"
+      f"• <b>Сумма к оплате:</b> {total_price}$ <i>(≈ {local_str}"
       f" {curr_symbol})</i>\n\n"
-      "🛡️ Расчеты проводятся строго через защищенный криптовалютный шлюз.\n\n"
-      "Выберите уровень подготовки:"
+      "⚠️ Оплата нашего сервиса принимается <b>исключительно в криптовалюте"
+      "</b>.\n\n"
+      "Если вы отлично разбираетесь — выберите пункт «Я разбираюсь». Если нет"
+      " — воспользуйтесь мини-гайдом ниже 👇"
   )
 
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="✅ Я опытный пользователь крипто",
+                  text="✅ Я разбираюсь в криптовалюте",
                   callback_data="crypto_expert",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="❓ Нужен гайд по оплате (Новичкам)",
+                  text="❓ Не разбираюсь (Гайд по оплате)",
                   callback_data="crypto_guide",
               )
           ],
@@ -875,31 +852,35 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data == "crypto_guide")
 async def process_crypto_guide(callback: CallbackQuery):
   text = (
-      "📖 <b>РУКОВОДСТВО ПО ОПЛАТЕ КРИПТОВАЛЮТОЙ</b>\n"
-      "━━━━━━━━━━━━━━━━━━━\n\n"
-      "Оплату можно легко произвести с любой банковской карты (Visa/Mastercard,"
-      " Сбер, Тинькофф, Казкоммерц и др.):\n\n"
-      "1. Воспользуйтесь официальным мониторингом обменников:"
+      "📖 <b>МИНИ-ГАЙД ПО ОПЛАТЕ КРИПТОВАЛЮТОЙ</b>\n\n"
+      "Даже если вы никогда не пользовались криптовалютой, оплатить заказ очень"
+      " просто с любой банковской карты или счета любой страны:\n\n"
+      "1. Перейдите на надежный мониторинг обменников:"
       " <b>https://exchangesumo.com</b>\n"
-      "2. В столбце «Отдаете» выберите вашу локальную валюту и банк.\n"
-      "3. В столбце «Получаете» выберите <b>USDT (TRC20 / BEP20), TON или"
-      " Bitcoin (BTC)</b>.\n"
-      "4. Выберите подходящий по лимитам обменный пункт из списка.\n"
-      "5. Заполните реквизиты нашего кошелька (которые выдадим на следующем"
-      " шаге) и совершите перевод.\n\n"
-      "Как будете готовы, нажмите кнопку ниже:"
+      "2. В левой колонке («Отдаете») выберите вашу валюту и банк (например,"
+      " <i>Сбербанк RUB, Тинькофф, Казкоммерцбанк, Visa/Mastercard UAH</i> и"
+      " т.д.).\n"
+      "3. В правой колонке («Получаете») выберите <b>Tether TRC20, BEP20, TON или Bitcoin (BTC)</b>.\n"
+      "4. В появившемся списке выберите подходящий обменник, у которого"
+      " минимальный лимит подходит под сумму вашего заказа.\n"
+      "5. Нажмите на выбранный обменник, заполните простую форму на их сайте:"
+      " укажите сумму и вставьте реквизиты нашего кошелька (которые мы выдадим"
+      " далее), а также свои данные для списания рублей/гривен/тенге.\n"
+      "6. Совершите перевод по инструкции обменника — и средства поступят к"
+      " нам в виде криптовалюты!\n\n"
+      "Как будете готовы, нажмите кнопку ниже, чтобы получить реквизиты:"
   )
 
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="🟢 Перейти к выбору сети", callback_data="crypto_expert"
+                  text="🟢 Перейти к выбору способа оплаты", callback_data="crypto_expert"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="◀️ Назад к оплате", callback_data="go_to_payment"
+                  text="⬅️ Назад к оплате", callback_data="go_to_payment"
               )
           ],
       ]
@@ -913,9 +894,8 @@ async def process_crypto_guide(callback: CallbackQuery):
 @router.callback_query(F.data == "crypto_expert")
 async def process_crypto_expert(callback: CallbackQuery, state: FSMContext):
   text = (
-      "💎 <b>ВЫБОР КРИПТОСЕТИ ДЛЯ ПЕРЕВОДА</b>\n"
-      "━━━━━━━━━━━━━━━━━━━\n\n"
-      "Выберите предпочтительную блокчейн-сеть:"
+      "💳 <b>ВЫБОР СПОСОБА ОПЛАТЫ</b>\n\n"
+      "Пожалуйста, выберите криптовалюту или сеть для перевода:"
   )
 
   keyboard = InlineKeyboardMarkup(
@@ -932,7 +912,7 @@ async def process_crypto_expert(callback: CallbackQuery, state: FSMContext):
           ],
           [
               InlineKeyboardButton(
-                  text="🔵 TON Network", callback_data="pay_ton"
+                  text="🔵 TON", callback_data="pay_ton"
               )
           ],
           [
@@ -942,7 +922,7 @@ async def process_crypto_expert(callback: CallbackQuery, state: FSMContext):
           ],
           [
               InlineKeyboardButton(
-                  text="◀️ Назад", callback_data="go_to_payment"
+                  text="⬅️ Назад", callback_data="go_to_payment"
               )
           ],
       ]
@@ -964,16 +944,15 @@ async def process_pay_trc20(callback: CallbackQuery, state: FSMContext):
   local_str = f"{local_amount:,}".replace(",", " ")
 
   payment_text = (
-      "🔴 <b>РЕКВИЗИТЫ: USDT (TRC-20)</b>\n"
-      "━━━━━━━━━━━━━━━━━━━\n\n"
-      f"• <b>Сумма к оплате:</b> <b>{total_price}$</b> <i>(≈ {local_str}"
-      f" {curr_symbol})</i>\n"
-      "• <b>Сеть:</b> TRC-20 (Tron)\n"
-      "• <b>Адрес кошелька:</b>\n"
+      "💳 <b>ОПЛАТА USDT (TRC-20)</b>\n\n"
+      f"• <b>Сумма:</b> {total_price}$ <i>(≈ {local_str} {curr_symbol})</i>\n"
+      "• <b>Сеть:</b> TRC-20\n"
+      "• <b>Реквизиты для оплаты:</b>\n"
       "<code>TYd1ekJgTHnFfgAVYXsi7689GaG5oZN3Xe</code>\n\n"
-      "⚠️ <b>ВАЖНО:</b>\n"
-      "<i>Переводите строго точную сумму. После транзакции обязательно"
-      " прикрепите скриншот чека кнопкой ниже.</i>"
+      "⚠️ <b>ВНИМАНИЕ!</b>\n"
+      "<i>Переводите строго точную сумму в сети TRC-20. После оплаты обязательно"
+      " нажмите кнопку ниже и отправьте чек! Без чека заявка не будет"
+      " обработана.</i>"
   )
 
   keyboard = InlineKeyboardMarkup(
@@ -986,7 +965,7 @@ async def process_pay_trc20(callback: CallbackQuery, state: FSMContext):
           ],
           [
               InlineKeyboardButton(
-                  text="◀️ К выбору сети", callback_data="crypto_expert"
+                  text="⬅️ Назад к выбору способа оплаты", callback_data="crypto_expert"
               )
           ],
       ]
@@ -1010,16 +989,15 @@ async def process_pay_bep20(callback: CallbackQuery, state: FSMContext):
   local_str = f"{local_amount:,}".replace(",", " ")
 
   payment_text = (
-      "🟢 <b>РЕКВИЗИТЫ: USDT (BEP-20)</b>\n"
-      "━━━━━━━━━━━━━━━━━━━\n\n"
-      f"• <b>Сумма к оплате:</b> <b>{total_price}$</b> <i>(≈ {local_str}"
-      f" {curr_symbol})</i>\n"
-      "• <b>Сеть:</b> BEP-20 (Binance Smart Chain)\n"
-      "• <b>Адрес кошелька:</b>\n"
+      "💳 <b>ОПЛАТА USDT (BEP-20)</b>\n\n"
+      f"• <b>Сумма:</b> {total_price}$ <i>(≈ {local_str} {curr_symbol})</i>\n"
+      "• <b>Сеть:</b> BEP-20\n"
+      "• <b>Реквизиты для оплаты:</b>\n"
       "<code>0x0A6C6634f8FD920a5E9E0d241CD46d6C15377f39</code>\n\n"
-      "⚠️ <b>ВАЖНО:</b>\n"
-      "<i>Переводите строго точную сумму. После транзакции обязательно"
-      " прикрепите скриншот чека кнопкой ниже.</i>"
+      "⚠️ <b>ВНИМАНИЕ!</b>\n"
+      "<i>Переводите строго точную сумму в сети BEP-20. После оплаты обязательно"
+      " нажмите кнопку ниже и отправьте чек! Без чека заявка не будет"
+      " обработана.</i>"
   )
 
   keyboard = InlineKeyboardMarkup(
@@ -1032,7 +1010,7 @@ async def process_pay_bep20(callback: CallbackQuery, state: FSMContext):
           ],
           [
               InlineKeyboardButton(
-                  text="◀️ К выбору сети", callback_data="crypto_expert"
+                  text="⬅️ Назад к выбору способа оплаты", callback_data="crypto_expert"
               )
           ],
       ]
@@ -1056,16 +1034,15 @@ async def process_pay_ton(callback: CallbackQuery, state: FSMContext):
   local_str = f"{local_amount:,}".replace(",", " ")
 
   payment_text = (
-      "🔵 <b>РЕКВИЗИТЫ: TON NETWORK</b>\n"
-      "━━━━━━━━━━━━━━━━━━━\n\n"
-      f"• <b>Сумма к оплате:</b> <b>{total_price}$</b> <i>(≈ {local_str}"
-      f" {curr_symbol})</i>\n"
+      "💳 <b>ОПЛАТА TON</b>\n\n"
+      f"• <b>Сумма:</b> {total_price}$ <i>(≈ {local_str} {curr_symbol})</i>\n"
       "• <b>Сеть:</b> TON\n"
-      "• <b>Адрес кошелька:</b>\n"
+      "• <b>Реквизиты для оплаты:</b>\n"
       "<code>UQDwk7PZoWr0zHv-BItBEGxnq4uyj81z6BlIw74heDgF-Shd</code>\n\n"
-      "⚠️ <b>ВАЖНО:</b>\n"
-      "<i>Переводите строго точную сумму. После транзакции обязательно"
-      " прикрепите скриншот чека кнопкой ниже.</i>"
+      "⚠️ <b>ВНИМАНИЕ!</b>\n"
+      "<i>Переводите строго точную сумму в сети TON. После оплаты обязательно"
+      " нажмите кнопку ниже и отправьте чек! Без чека заявка не будет"
+      " обработана.</i>"
   )
 
   keyboard = InlineKeyboardMarkup(
@@ -1078,7 +1055,7 @@ async def process_pay_ton(callback: CallbackQuery, state: FSMContext):
           ],
           [
               InlineKeyboardButton(
-                  text="◀️ К выбору сети", callback_data="crypto_expert"
+                  text="⬅️ Назад к выбору способа оплаты", callback_data="crypto_expert"
               )
           ],
       ]
@@ -1102,16 +1079,15 @@ async def process_pay_btc(callback: CallbackQuery, state: FSMContext):
   local_str = f"{local_amount:,}".replace(",", " ")
 
   payment_text = (
-      "🟠 <b>РЕКВИЗИТЫ: BITCOIN (BTC)</b>\n"
-      "━━━━━━━━━━━━━━━━━━━\n\n"
-      f"• <b>Сумма к оплате:</b> <b>{total_price}$</b> <i>(≈ {local_str}"
-      f" {curr_symbol})</i>\n"
+      "💳 <b>ОПЛАТА BITCOIN (BTC)</b>\n\n"
+      f"• <b>Сумма:</b> {total_price}$ <i>(≈ {local_str} {curr_symbol})</i>\n"
       "• <b>Сеть:</b> Bitcoin\n"
-      "• <b>Адрес кошелька:</b>\n"
+      "• <b>Реквизиты для оплаты:</b>\n"
       "<code>bc1qj7xy0645vcza7l3et5s8nuahllua9a439c0795</code>\n\n"
-      "⚠️ <b>ВАЖНО:</b>\n"
-      "<i>Переводите строго точную сумму. После транзакции обязательно"
-      " прикрепите скриншот чека кнопкой ниже.</i>"
+      "⚠️ <b>ВНИМАНИЕ!</b>\n"
+      "<i>Переводите строго точную сумму в сети Bitcoin. После оплаты обязательно"
+      " нажмите кнопку ниже и отправьте чек! Без чека заявка не будет"
+      " обработана.</i>"
   )
 
   keyboard = InlineKeyboardMarkup(
@@ -1124,7 +1100,7 @@ async def process_pay_btc(callback: CallbackQuery, state: FSMContext):
           ],
           [
               InlineKeyboardButton(
-                  text="◀️ К выбору сети", callback_data="crypto_expert"
+                  text="⬅️ Назад к выбору способа оплаты", callback_data="crypto_expert"
               )
           ],
       ]
@@ -1141,11 +1117,9 @@ async def process_pay_btc(callback: CallbackQuery, state: FSMContext):
 async def ask_for_receipt(callback: CallbackQuery, state: FSMContext):
   await state.set_state(OrderForm.receipt)
   text = (
-      "🧾 <b>ПОДТВЕРЖДЕНИЕ ТРАНЗАКЦИИ</b>\n"
-      "━━━━━━━━━━━━━━━━━━━\n\n"
-      "Отправьте в чат <b>фотографию или скриншот чека</b> о перечислении"
-      " средств.\n<i>Без подтверждающего скриншота система не сможет передать"
-      " заявку в работу.</i>"
+      "🧾 <b>Подтверждение оплаты</b>\n\n"
+      "Пожалуйста, отправьте в чат <b>фотографию или скриншот чека</b> о"
+      " переводе (без чека система не пропустит вашу заявку)."
   )
   await callback.message.edit_text(text, parse_mode="HTML")
   await callback.answer()
@@ -1160,7 +1134,7 @@ async def process_receipt_photo(message: Message, state: FSMContext):
   order_info = {
       "service_name": data.get("service_name"),
       "total_price": data.get("total_price"),
-      "status": "⏳ Проверка транзакции",
+      "status": "⏳ Ожидает проверки оплаты",
   }
 
   user_id = user.id
@@ -1169,10 +1143,9 @@ async def process_receipt_photo(message: Message, state: FSMContext):
   USER_ORDERS[user_id].append(order_info)
 
   final_text = (
-      "✅ <b>ЗАЯВКА И ЧЕК УСПЕШНО ПРИНЯТЫ</b>\n"
-      "━━━━━━━━━━━━━━━━━━━\n\n"
-      "Оператор проверяет поступление средств в сети.\n"
-      "Связь с вами будет установлена в течение <b>15-25 минут</b>."
+      "✅ <b>Заявка и чек успешно приняты!</b>\n\n"
+      "Администратор проверяет поступление средств. С вами свяжутся в"
+      " течение <b>25 минут</b>."
   )
 
   keyboard = InlineKeyboardMarkup(
@@ -1192,8 +1165,8 @@ async def process_receipt_photo(message: Message, state: FSMContext):
 @router.message(OrderForm.receipt, ~F.photo)
 async def process_receipt_invalid(message: Message):
   await message.answer(
-      "⚠️ Пожалуйста, отправьте <b>изображение (скриншот) чека</b>."
-      " Текстовые сообщения не принимаются системой проверки!"
+      "⚠️ Пожалуйста, отправьте именно <b>фотографию или скриншот чека</b>"
+      " (картинкой), текстовые сообщения в качестве чека не принимаются!"
   )
 
 
@@ -1253,13 +1226,12 @@ async def process_start_vacancy(callback: CallbackQuery, state: FSMContext):
                   text="🇦🇿 Азербайджан", callback_data="vcountry_Azerbaijan"
               )
           ],
-          [InlineKeyboardButton(text="❌ Отмена", callback_data="back_home")],
+          [InlineKeyboardButton(text="⬅️ Отмена", callback_data="back_home")],
       ]
   )
   await callback.message.edit_text(
-      "⚡ <b>КАРЬЕРА В КОМАНДЕ — ШАГ 1 из 8</b>\n"
-      "━━━━━━━━━━━━━━━━━━━\n\n"
-      "Выберите вашу страну текущего пребывания:",
+      "💼 <b>АНКЕТА СОИСКАТЕЛЯ</b>\n\n<b>Шаг 1 из 8: Страна проживания</b>\nВыберите"
+      " вашу страну из списка:",
       reply_markup=keyboard,
       parse_mode="HTML",
   )
@@ -1274,7 +1246,7 @@ async def process_vacancy_country(callback: CallbackQuery, state: FSMContext):
       "Russia": "Россия",
       "Belarus": "Беларусь",
       "Kazakhstan": "Казахстан",
-      "Молдова": "Молдова",
+      "Moldova": "Молдова",
       "Uzbekistan": "Узбекистан",
       "Kyrgyzstan": "Кыргызстан",
       "Tajikistan": "Таджикистан",
@@ -1293,10 +1265,8 @@ async def process_vacancy_country(callback: CallbackQuery, state: FSMContext):
   )
   await state.set_state(VacancyForm.city)
   await callback.message.edit_text(
-      f"⚡ <b>КАРЬЕРА В КОМАНДЕ — ШАГ 2 из 8</b>\n"
-      f"━━━━━━━━━━━━━━━━━━━\n\n"
-      f"Страна: <b>{selected}</b>\n\n"
-      "Введите название вашего города текстом:",
+      f"💼 <b>АНКЕТА СОИСКАТЕЛЯ</b>\n\nСтрана: <b>{selected}</b>\n\n<b>Шаг 2 из"
+      " 8: Город проживания</b>\nВведите название вашего города текстом:",
       parse_mode="HTML",
   )
   await callback.answer()
@@ -1307,9 +1277,8 @@ async def process_vacancy_city(message: Message, state: FSMContext):
   await state.update_data(city=message.text.strip())
   await state.set_state(VacancyForm.name)
   await message.answer(
-      "⚡ <b>КАРЬЕРА В КОМАНДЕ — ШАГ 3 из 8</b>\n"
-      "━━━━━━━━━━━━━━━━━━━\n\n"
-      "Введите ваше имя или рабочий псевдоним:",
+      "💼 <b>АНКЕТА СОИСКАТЕЛЯ</b>\n\n<b>Шаг 3 из 8: Имя</b>\nВведите ваше"
+      " имя (или псевдоним):",
       parse_mode="HTML",
   )
 
@@ -1319,9 +1288,8 @@ async def process_vacancy_name(message: Message, state: FSMContext):
   await state.update_data(name=message.text.strip())
   await state.set_state(VacancyForm.age)
   await message.answer(
-      "⚡ <b>КАРЬЕРА В КОМАНДЕ — ШАГ 4 из 8</b>\n"
-      "━━━━━━━━━━━━━━━━━━━\n\n"
-      "Укажите ваш возраст:",
+      "💼 <b>АНКЕТА СОИСКАТЕЛЯ</b>\n\n<b>Шаг 4 из 8: Возраст</b>\nУкажите сколько"
+      " вам лет:",
       parse_mode="HTML",
   )
 
@@ -1331,10 +1299,8 @@ async def process_vacancy_age(message: Message, state: FSMContext):
   await state.update_data(age=message.text.strip())
   await state.set_state(VacancyForm.parameters)
   await message.answer(
-      "⚡ <b>КАРЬЕРА В КОМАНДЕ — ШАГ 5 из 8</b>\n"
-      "━━━━━━━━━━━━━━━━━━━\n\n"
-      "Укажите ваши физические параметры (рост, вес, телосложение):\n"
-      "<i>Пример: 185 см, 95 кг, плотное</i>",
+      "💼 <b>АНКЕТА СОИСКАТЕЛЯ</b>\n\n<b>Шаг 5 из 8: Параметры телосложения</b>\nУкажите"
+      " ваш рост, вес и телосложение (например: <i>185 см, 95 кг, плотное</i>):",
       parse_mode="HTML",
   )
 
@@ -1344,9 +1310,9 @@ async def process_vacancy_parameters(message: Message, state: FSMContext):
   await state.update_data(parameters=message.text.strip())
   await state.set_state(VacancyForm.sports_exp)
   await message.answer(
-      "⚡ <b>КАРЬЕРА В КОМАНДЕ — ШАГ 6 из 8</b>\n"
-      "━━━━━━━━━━━━━━━━━━━\n\n"
-      "Был ли опыт в единоборствах или спортивный стаж? Укажите детали:",
+      "💼 <b>АНКЕТА СОИСКАТЕЛЯ</b>\n\n<b>Шаг 6 из 8: Спортивный опыт</b>\nКакими"
+      " видами боевых искусств вы занимались, каков стаж, есть ли разряды (КМС,"
+      " Мастер спорта и т.д.)?",
       parse_mode="HTML",
   )
 
@@ -1356,9 +1322,8 @@ async def process_vacancy_sports_exp(message: Message, state: FSMContext):
   await state.update_data(sports_exp=message.text.strip())
   await state.set_state(VacancyForm.experience)
   await message.answer(
-      "⚡ <b>КАРЬЕРА В КОМАНДЕ — ШАГ 7 из 8</b>\n"
-      "━━━━━━━━━━━━━━━━━━━\n\n"
-      "Опишите ваш предыдущий опыт в аналогичной сфере:",
+      "💼 <b>АНКЕТА СОИСКАТЕЛЯ</b>\n\n<b>Шаг 7 из 8: Опыт работы</b>\nБыл ли у вас"
+      " опыт в подобных делах или сфере услуг? Кратко опишите:",
       parse_mode="HTML",
   )
 
@@ -1368,9 +1333,10 @@ async def process_vacancy_experience(message: Message, state: FSMContext):
   await state.update_data(experience=message.text.strip())
   await state.set_state(VacancyForm.photo)
   await message.answer(
-      "⚡ <b>КАРЬЕРА В КОМАНДЕ — ШАГ 8 из 8</b>\n"
-      "━━━━━━━━━━━━━━━━━━━\n\n"
-      "📸 Прикрепите актуальное фото физической формы (можно скрыть лицо для безопасности).",
+      "💼 <b>АНКЕТА СОИСКАТЕЛЯ</b>\n\n<b>Шаг 8 из 8: Фотография"
+      " телосложения</b>\n📸 Прикрепите фото актуальной физической формы"
+      " (сделанное в текущий момент с метаданными). <i>Лицо можете замазать для"
+      " безопасности.</i>",
       parse_mode="HTML",
   )
 
@@ -1384,24 +1350,26 @@ async def process_vacancy_photo(message: Message, state: FSMContext):
   curr_code = data.get("curr_code", "USD")
   curr_symbol = data.get("curr_symbol", "USD")
   rate = await get_exchange_rate(curr_code)
-  deposit_usd = 200
+  deposit_usd = 200  # Залог 200$
   local_amount = round(deposit_usd * rate)
   local_str = f"{local_amount:,}".replace(",", " ")
 
   text = (
-      "✅ <b>АНКЕТА УСПЕШНО ЗАРЕГИСТРИРОВАНА</b>\n"
-      "━━━━━━━━━━━━━━━━━━━\n\n"
-      "Для подтверждения серьезности намерений и доступа к заданиям необходимо"
-      " внести гарантийный залог в размере <b>200$</b> <i>(≈ "
+      "✅ <b>Анкета успешно заполнена!</b>\n\n"
+      "Для окончательного трудоустройства в нашу команду и подтверждения"
+      " серьезности ваших намерений необходимо внести гарантийный залог в"
+      " размере <b>200$</b> <i>(≈ "
       f"{local_str} {curr_symbol})</i>.\n\n"
-      "⚠️ Оплата производится через криптошлюз."
+      "⚠️ Оплата производится в криптовалюте. После внесения залога с"
+      " вами свяжется модератор для выдачи первых заданий."
   )
 
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="💳 Внести залог (200$)", callback_data="vacancy_pay"
+                  text="💳 Внести залог (Оплатить 200$)",
+                  callback_data="vacancy_pay",
               )
           ]
       ]
@@ -1412,7 +1380,8 @@ async def process_vacancy_photo(message: Message, state: FSMContext):
 @router.message(VacancyForm.photo, ~F.photo)
 async def process_vacancy_photo_invalid(message: Message):
   await message.answer(
-      "⚠️ Пожалуйста, прикрепите именно <b>фотографию</b> (изображением)!"
+      "⚠️ Пожалуйста, отправьте именно <b>фотографию</b> (картинкой), текстовые"
+      " сообщения не принимаются!"
   )
 
 
@@ -1427,11 +1396,10 @@ async def process_vacancy_pay(callback: CallbackQuery, state: FSMContext):
   local_str = f"{local_amount:,}".replace(",", " ")
 
   text = (
-      "🛡️ <b>ВНЕСЕНИЕ ГАРАНТИЙНОГО ЗАЛОГА</b>\n"
-      "━━━━━━━━━━━━━━━━━━━\n\n"
-      f"• <b>Сумма:</b> <b>{deposit_usd}$</b> <i>(≈ {local_str} {curr_symbol})</i>\n"
-      "• <b>Назначение:</b> Страховой залог сотрудника\n\n"
-      "Выберите сеть для перевода:"
+      "💳 <b>ВНЕСЕНИЕ ЗАЛОГА ДЛЯ ТРУДОУСТРОЙСТВА</b>\n\n"
+      f"• <b>Сумма к оплате:</b> {deposit_usd}$ <i>(≈ {local_str}"
+      f" {curr_symbol})</i>\n"
+      "• <b>Выберите способ оплаты:</b>"
   )
 
   keyboard = InlineKeyboardMarkup(
@@ -1448,7 +1416,7 @@ async def process_vacancy_pay(callback: CallbackQuery, state: FSMContext):
           ],
           [
               InlineKeyboardButton(
-                  text="🔵 TON Network", callback_data="vpay_ton"
+                  text="🔵 TON", callback_data="vpay_ton"
               )
           ],
           [
@@ -1458,7 +1426,7 @@ async def process_vacancy_pay(callback: CallbackQuery, state: FSMContext):
           ],
           [
               InlineKeyboardButton(
-                  text="🏠 На главную", callback_data="back_home"
+                  text="⬅️ На главную", callback_data="back_home"
               )
           ],
       ]
@@ -1470,9 +1438,14 @@ async def process_vacancy_pay(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data == "vpay_trc20")
 async def vpay_trc20(callback: CallbackQuery):
   text = (
-      "🔴 <b>ЗАЛОГ: USDT (TRC-20)</b>\n━━━━━━━━━━━━━━━━━━━\n\n• <b>Сумма:</b>"
-      " 200$\n• <b>Адрес:</b>\n<code>TYd1ekJgTHnFfgAVYXsi7689GaG5oZN3Xe</code>\n\n⚠️"
-      " После перевода отправьте скриншот чека кнопкой ниже."
+      "💳 <b>ОПЛАТА ЗАЛОГА (TRC-20)</b>\n\n"
+      "• <b>Сумма:</b> 200$\n"
+      "• <b>Сеть:</b> TRC-20\n"
+      "• <b>Реквизиты для перевода:</b>\n"
+      "<code>TYd1ekJgTHnFfgAVYXsi7689GaG5oZN3Xe</code>\n\n"
+      "⚠️ <b>ВНИМАНИЕ!</b>\n"
+      "После перевода обязательно нажмите кнопку ниже и отправьте скриншот"
+      " чека!"
   )
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
@@ -1491,9 +1464,14 @@ async def vpay_trc20(callback: CallbackQuery):
 @router.callback_query(F.data == "vpay_bep20")
 async def vpay_bep20(callback: CallbackQuery):
   text = (
-      "🟢 <b>ЗАЛОГ: USDT (BEP-20)</b>\n━━━━━━━━━━━━━━━━━━━\n\n• <b>Сумма:</b>"
-      " 200$\n• <b>Адрес:</b>\n<code>0x0A6C6634f8FD920a5E9E0d241CD46d6C15377f39</code>\n\n⚠️"
-      " После перевода отправьте скриншот чека кнопкой ниже."
+      "💳 <b>ОПЛАТА ЗАЛОГА (BEP-20)</b>\n\n"
+      "• <b>Сумма:</b> 200$\n"
+      "• <b>Сеть:</b> BEP-20\n"
+      "• <b>Реквизиты для перевода:</b>\n"
+      "<code>0x0A6C6634f8FD920a5E9E0d241CD46d6C15377f39</code>\n\n"
+      "⚠️ <b>ВНИМАНИЕ!</b>\n"
+      "После перевода обязательно нажмите кнопку ниже и отправьте скриншот"
+      " чека!"
   )
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
@@ -1512,9 +1490,14 @@ async def vpay_bep20(callback: CallbackQuery):
 @router.callback_query(F.data == "vpay_ton")
 async def vpay_ton(callback: CallbackQuery):
   text = (
-      "🔵 <b>ЗАЛОГ: TON NETWORK</b>\n━━━━━━━━━━━━━━━━━━━\n\n• <b>Сумма:</b>"
-      " 200$\n• <b>Адрес:</b>\n<code>UQDwk7PZoWr0zHv-BItBEGxnq4uyj81z6BlIw74heDgF-Shd</code>\n\n⚠️"
-      " После перевода отправьте скриншот чека кнопкой ниже."
+      "💳 <b>ОПЛАТА ЗАЛОГА (TON)</b>\n\n"
+      "• <b>Сумма:</b> 200$\n"
+      "• <b>Сеть:</b> TON\n"
+      "• <b>Реквизиты для перевода:</b>\n"
+      "<code>UQDwk7PZoWr0zHv-BItBEGxnq4uyj81z6BlIw74heDgF-Shd</code>\n\n"
+      "⚠️ <b>ВНИМАНИЕ!</b>\n"
+      "После перевода обязательно нажмите кнопку ниже и отправьте скриншот"
+      " чека!"
   )
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
@@ -1533,9 +1516,14 @@ async def vpay_ton(callback: CallbackQuery):
 @router.callback_query(F.data == "vpay_btc")
 async def vpay_btc(callback: CallbackQuery):
   text = (
-      "🟠 <b>ЗАЛОГ: BITCOIN (BTC)</b>\n━━━━━━━━━━━━━━━━━━━\n\n• <b>Сумма:</b>"
-      " 200$\n• <b>Адрес:</b>\n<code>bc1qj7xy0645vcza7l3et5s8nuahllua9a439c0795</code>\n\n⚠️"
-      " После перевода отправьте скриншот чека кнопкой ниже."
+      "💳 <b>ОПЛАТА ЗАЛОГА (BITCOIN)</b>\n\n"
+      "• <b>Сумма:</b> 200$\n"
+      "• <b>Сеть:</b> Bitcoin\n"
+      "• <b>Реквизиты для перевода:</b>\n"
+      "<code>bc1qj7xy0645vcza7l3et5s8nuahllua9a439c0795</code>\n\n"
+      "⚠️ <b>ВНИМАНИЕ!</b>\n"
+      "После перевода обязательно нажмите кнопку ниже и отправьте скриншот"
+      " чека!"
   )
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
@@ -1555,8 +1543,9 @@ async def vpay_btc(callback: CallbackQuery):
 async def vacancy_ask_receipt(callback: CallbackQuery, state: FSMContext):
   await state.set_state(VacancyForm.receipt)
   text = (
-      "🧾 <b>ПОДТВЕРЖДЕНИЕ ЗАЛОГА</b>\n━━━━━━━━━━━━━━━━━━━\n\nОтправьте в чат"
-      " <b>скриншот или фото чека</b> об успешном переводе гарантийного залога."
+      "🧾 <b>Подтверждение залога</b>\n\n"
+      "Пожалуйста, отправьте в чат <b>фотографию или скриншот чека</b> об"
+      " успешном переводе залога."
   )
   await callback.message.edit_text(text, parse_mode="HTML")
   await callback.answer()
@@ -1565,10 +1554,9 @@ async def vacancy_ask_receipt(callback: CallbackQuery, state: FSMContext):
 @router.message(VacancyForm.receipt, F.photo)
 async def process_vacancy_receipt(message: Message, state: FSMContext):
   final_text = (
-      "✅ <b>ЗАЯВКА НА ТРУДОУСТРОЙСТВО ПРИНЯТА</b>\n"
-      "━━━━━━━━━━━━━━━━━━━\n\n"
-      "Анкета и чек переданы руководству безопасности.\n"
-      "Модератор свяжется с вами для выдачи задач."
+      "✅ <b>Заявка на трудоустройство и чек успешно приняты!</b>\n\n"
+      "Ваша анкета передана руководству на проверку. В ближайшее время с вами"
+      " свяжется модератор и выдаст первые задания."
   )
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
@@ -1585,7 +1573,10 @@ async def process_vacancy_receipt(message: Message, state: FSMContext):
 
 @router.message(VacancyForm.receipt, ~F.photo)
 async def process_vacancy_receipt_invalid(message: Message):
-  await message.answer("⚠️ Отправьте чек в виде <b>изображения (фото)</b>!")
+  await message.answer(
+      "⚠️ Пожалуйста, отправьте именно <b>фотографию или скриншот чека</b>"
+      " (картинкой)!"
+  )
 
 
 # =====================================================================
@@ -1598,23 +1589,24 @@ async def process_start_ads(callback: CallbackQuery, state: FSMContext):
   await state.clear()
   await state.set_state(AdForm.platform)
   text = (
-      "📢 <b>МЕДИЙНОЕ СОТРУДНИЧЕСТВО И РЕКЛАМА</b>\n"
-      "━━━━━━━━━━━━━━━━━━━\n\n"
-      "Выберите площадку для размещения вашей рекламной кампании:"
+      "📢 <b>ПОКУПКА РЕКЛАМЫ И СОТРУДНИЧЕСТВО</b>\n\n"
+      "Выберите площадку для размещения вашей рекламы:"
   )
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="🤖 Реклама в боте", callback_data="adplat_bot"
+                  text="🤖 Реклама в боте",
+                  callback_data="adplat_bot",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="📢 Реклама в канале", callback_data="adplat_channel"
+                  text="📢 Реклама в канале",
+                  callback_data="adplat_channel",
               )
           ],
-          [InlineKeyboardButton(text="◀️ На главную", callback_data="back_home")],
+          [InlineKeyboardButton(text="⬅️ На главную", callback_data="back_home")],
       ]
   )
   await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
@@ -1630,36 +1622,32 @@ async def process_ad_platform(callback: CallbackQuery, state: FSMContext):
   await state.update_data(platform=platform_name, plat_code=plat_code)
   await state.set_state(AdForm.duration)
 
+  # Расчет базы пользователей для бота (1037 + 41 ежедневно)
   current_date = datetime.date.today()
   base_date = datetime.date(2026, 1, 1)
   days_passed = max(0, (current_date - base_date).days)
   total_users = 1037 + days_passed * 41
 
+  # Новые цены рекламы
   kb_list = [
-      [InlineKeyboardButton(text="⏱️ 24 часа — 10$", callback_data="addur_24h_10")],
-      [InlineKeyboardButton(text="📅 3 дня — 20$", callback_data="addur_3d_20")],
-      [InlineKeyboardButton(text="📅 7 дней — 50$", callback_data="addur_7d_50")],
-      [
-          InlineKeyboardButton(
-              text="🔥 30 дней — 200$", callback_data="addur_30d_200"
-          )
-      ],
+      [InlineKeyboardButton(text="24 часа = 10$", callback_data="addur_24h_10")],
+      [InlineKeyboardButton(text="3 дня = 20$", callback_data="addur_3d_20")],
+      [InlineKeyboardButton(text="7 дней = 50$", callback_data="addur_7d_50")],
+      [InlineKeyboardButton(text="30 дней = 200$", callback_data="addur_30d_200")],
   ]
-  kb_list.append([InlineKeyboardButton(text="◀️ Назад", callback_data="start_ads")])
+  kb_list.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="start_ads")])
   keyboard = InlineKeyboardMarkup(inline_keyboard=kb_list)
 
   if plat_code == "bot":
     text = (
         f"🤖 <b>Площадка: Реклама в боте</b>\n"
-        f"👥 База активных пользователей: <b>{total_users}</b> <i>(прирост +41 ежедневно)</i>\n"
-        "━━━━━━━━━━━━━━━━━━━\n\n"
-        "Выберите срок размещения:"
+        f"👥 База: <b>{total_users} пользователей</b> (каждый день +41)\n\n"
+        "<b>Выберите срок размещения рекламы:</b>"
     )
   else:
     text = (
-        "📢 <b>Площадка: Реклама в канале</b>\n"
-        "━━━━━━━━━━━━━━━━━━━\n\n"
-        "Выберите срок размещения:"
+        f"📢 <b>Площадка: Реклама в канале</b>\n\n"
+        "<b>Выберите срок размещения рекламы:</b>"
     )
 
   await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
@@ -1684,10 +1672,9 @@ async def process_ad_duration(callback: CallbackQuery, state: FSMContext):
   await state.set_state(AdForm.niche)
 
   text = (
-      f"📢 <b>ТАРИФ: {duration_str} — {price}$</b>\n"
-      "━━━━━━━━━━━━━━━━━━━\n\n"
-      "<b>Шаг 3: Тематика (ниша) проекта</b>\n"
-      "Введите краткое описание или нишу вашего ресурса:"
+      f"📢 <b>Выбрано: {duration_str} — {price}$</b>\n\n"
+      "<b>Шаг 3: Ваша тематика (ниша)</b>\n"
+      "Введите тематику или нишу вашего проекта текстом:"
   )
   await callback.message.edit_text(text, parse_mode="HTML")
   await callback.answer()
@@ -1698,8 +1685,7 @@ async def process_ad_niche(message: Message, state: FSMContext):
   await state.update_data(niche=message.text.strip())
   await state.set_state(AdForm.link)
   await message.answer(
-      "🔗 <b>Шаг 4: Целевая ссылка</b>\n━━━━━━━━━━━━━━━━━━━\nВведите ссылку на ваш"
-      " ресурс, бота или канал:",
+      "📢 <b>Шаг 4: Ссылка</b>\n\nВведите ссылку на ваш ресурс или бота:",
       parse_mode="HTML",
   )
 
@@ -1709,8 +1695,9 @@ async def process_ad_link(message: Message, state: FSMContext):
   await state.update_data(link=message.text.strip())
   await state.set_state(AdForm.creative)
   await message.answer(
-      "🎨 <b>Шаг 5: Рекламный креатив</b>\n━━━━━━━━━━━━━━━━━━━\nОтправьте готовый"
-      " пост, изображение или видеоматериал для публикации:",
+      "📢 <b>Шаг 5: Креатив</b>\n\n"
+      "Отправьте креатив (изображение, текст поста или видео), который будет"
+      " использоваться для рекламы:",
       parse_mode="HTML",
   )
 
@@ -1729,8 +1716,7 @@ async def process_ad_creative(message: Message, state: FSMContext):
   price = data.get("ad_price", 0)
 
   text = (
-      "🎉 <b>ЗАЯВКА НА РЕКЛАМУ СФОРМИРОВАНА</b>\n"
-      "━━━━━━━━━━━━━━━━━━━\n\n"
+      "🎉 <b>Рекламная заявка успешно сформирована!</b>\n\n"
       f"• Площадка: <b>{data.get('platform')}</b>\n"
       f"• Срок: <b>{data.get('duration')}</b>\n"
       f"• Ниша: <b>{data.get('niche')}</b>\n"
@@ -1738,7 +1724,7 @@ async def process_ad_creative(message: Message, state: FSMContext):
       f"• Креатив: <b>{creative_desc}</b>\n\n"
       f"💵 <b>К оплате: {price}$</b>\n\n"
       "⚠️ <b>Оплата принимается строго в криптовалюте!</b>\n"
-      "Нажмите кнопку ниже для проведения оплаты 👇"
+      "Нажмите кнопку ниже для выбора способа оплаты 👇"
   )
 
   keyboard = InlineKeyboardMarkup(
@@ -1759,9 +1745,8 @@ async def process_ad_pay_select(callback: CallbackQuery, state: FSMContext):
   price = data.get("ad_price", 0)
 
   text = (
-      f"💳 <b>ОПЛАТА РЕКЛАМНОЙ КАМПАНИИ ({price}$)</b>\n"
-      "━━━━━━━━━━━━━━━━━━━\n\n"
-      "Выберите сеть для перевода:"
+      f"💳 <b>ОПЛАТА РЕКЛАМЫ ({price}$)</b>\n\n"
+      "Выберите способ оплаты:"
   )
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
@@ -1777,7 +1762,7 @@ async def process_ad_pay_select(callback: CallbackQuery, state: FSMContext):
           ],
           [
               InlineKeyboardButton(
-                  text="🔵 TON Network", callback_data="adpay_ton"
+                  text="🔵 TON", callback_data="adpay_ton"
               )
           ],
           [
@@ -1785,7 +1770,7 @@ async def process_ad_pay_select(callback: CallbackQuery, state: FSMContext):
                   text="🟠 Bitcoin (BTC)", callback_data="adpay_btc"
               )
           ],
-          [InlineKeyboardButton(text="🏠 На главную", callback_data="back_home")],
+          [InlineKeyboardButton(text="⬅️ На главную", callback_data="back_home")],
       ]
   )
   await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
@@ -1797,9 +1782,14 @@ async def adpay_trc20(callback: CallbackQuery, state: FSMContext):
   data = await state.get_data()
   price = data.get("ad_price", 0)
   text = (
-      f"🔴 <b>РЕКЛАМА: USDT (TRC-20)</b>\n━━━━━━━━━━━━━━━━━━━\n\n• <b>Сумма:</b>"
-      f" <b>{price}$</b>\n• <b>Адрес:</b>\n<code>TYd1ekJgTHnFfgAVYXsi7689GaG5oZN3Xe</code>\n\n⚠️"
-      " После перевода прикрепите чек."
+      f"💳 <b>ОПЛАТА РЕКЛАМЫ (TRC-20)</b>\n\n"
+      f"• <b>Сумма:</b> {price}$\n"
+      "• <b>Сеть:</b> TRC-20\n"
+      "• <b>Реквизиты для оплаты:</b>\n"
+      "<code>TYd1ekJgTHnFfgAVYXsi7689GaG5oZN3Xe</code>\n\n"
+      "⚠️ <b>ВНИМАНИЕ!</b>\n"
+      "Переводите строго точную сумму. После оплаты нажмите кнопку ниже и"
+      " прикрепите чек!"
   )
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
@@ -1820,9 +1810,14 @@ async def adpay_bep20(callback: CallbackQuery, state: FSMContext):
   data = await state.get_data()
   price = data.get("ad_price", 0)
   text = (
-      f"🟢 <b>РЕКЛАМА: USDT (BEP-20)</b>\n━━━━━━━━━━━━━━━━━━━\n\n• <b>Сумма:</b>"
-      f" <b>{price}$</b>\n• <b>Адрес:</b>\n<code>0x0A6C6634f8FD920a5E9E0d241CD46d6C15377f39</code>\n\n⚠️"
-      " После перевода прикрепите чек."
+      f"💳 <b>ОПЛАТА РЕКЛАМЫ (BEP-20)</b>\n\n"
+      f"• <b>Сумма:</b> {price}$\n"
+      "• <b>Сеть:</b> BEP-20\n"
+      "• <b>Реквизиты для оплаты:</b>\n"
+      "<code>0x0A6C6634f8FD920a5E9E0d241CD46d6C15377f39</code>\n\n"
+      "⚠️ <b>ВНИМАНИЕ!</b>\n"
+      "Переводите строго точную сумму. После оплаты нажмите кнопку ниже и"
+      " прикрепите чек!"
   )
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
@@ -1843,9 +1838,14 @@ async def adpay_ton(callback: CallbackQuery, state: FSMContext):
   data = await state.get_data()
   price = data.get("ad_price", 0)
   text = (
-      f"🔵 <b>РЕКЛАМА: TON NETWORK</b>\n━━━━━━━━━━━━━━━━━━━\n\n• <b>Сумма:</b>"
-      f" <b>{price}$</b>\n• <b>Адрес:</b>\n<code>UQDwk7PZoWr0zHv-BItBEGxnq4uyj81z6BlIw74heDgF-Shd</code>\n\n⚠️"
-      " После перевода прикрепите чек."
+      f"💳 <b>ОПЛАТА РЕКЛАМЫ (TON)</b>\n\n"
+      f"• <b>Сумма:</b> {price}$\n"
+      "• <b>Сеть:</b> TON\n"
+      "• <b>Реквизиты для оплаты:</b>\n"
+      "<code>UQDwk7PZoWr0zHv-BItBEGxnq4uyj81z6BlIw74heDgF-Shd</code>\n\n"
+      "⚠️ <b>ВНИМАНИЕ!</b>\n"
+      "Переводите строго точную сумму. После оплаты нажмите кнопку ниже и"
+      " прикрепите чек!"
   )
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
@@ -1866,9 +1866,14 @@ async def adpay_btc(callback: CallbackQuery, state: FSMContext):
   data = await state.get_data()
   price = data.get("ad_price", 0)
   text = (
-      f"🟠 <b>РЕКЛАМА: BITCOIN (BTC)</b>\n━━━━━━━━━━━━━━━━━━━\n\n• <b>Сумма:</b>"
-      f" <b>{price}$</b>\n• <b>Адрес:</b>\n<code>bc1qj7xy0645vcza7l3et5s8nuahllua9a439c0795</code>\n\n⚠️"
-      " После перевода прикрепите чек."
+      f"💳 <b>ОПЛАТА РЕКЛАМЫ (BITCOIN)</b>\n\n"
+      f"• <b>Сумма:</b> {price}$\n"
+      "• <b>Сеть:</b> Bitcoin\n"
+      "• <b>Реквизиты для оплаты:</b>\n"
+      "<code>bc1qj7xy0645vcza7l3et5s8nuahllua9a439c0795</code>\n\n"
+      "⚠️ <b>ВНИМАНИЕ!</b>\n"
+      "Переводите строго точную сумму. После оплаты нажмите кнопку ниже и"
+      " прикрепите чек!"
   )
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
@@ -1888,8 +1893,9 @@ async def adpay_btc(callback: CallbackQuery, state: FSMContext):
 async def ad_ask_receipt(callback: CallbackQuery, state: FSMContext):
   await state.set_state(AdForm.receipt)
   text = (
-      "🧾 <b>ПОДТВЕРЖДЕНИЕ ОПЛАТЫ РЕКЛАМЫ</b>\n━━━━━━━━━━━━━━━━━━━\n\nОтправьте в"
-      " чат <b>фотографию или скриншот чека</b> о переводе средств."
+      "🧾 <b>Подтверждение оплаты рекламы</b>\n\n"
+      "Пожалуйста, отправьте в чат <b>фотографию или скриншот чека</b> о"
+      " переводе."
   )
   await callback.message.edit_text(text, parse_mode="HTML")
   await callback.answer()
@@ -1898,10 +1904,9 @@ async def ad_ask_receipt(callback: CallbackQuery, state: FSMContext):
 @router.message(AdForm.receipt, F.photo)
 async def process_ad_receipt(message: Message, state: FSMContext):
   final_text = (
-      "✅ <b>ЗАЯВКА НА РЕКЛАМУ И ЧЕК ПРИНЯТЫ</b>\n"
-      "━━━━━━━━━━━━━━━━━━━\n\n"
-      "Модератор проверит поступление средств в течение <b>15-25 минут</b> и"
-      " активирует размещение."
+      "✅ <b>Заявка на рекламу и чек успешно приняты!</b>\n\n"
+      "Ожидайте, модератор проверит поступление средств в течение <b>25"
+      " минут</b> и свяжется с вами."
   )
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
@@ -1918,7 +1923,10 @@ async def process_ad_receipt(message: Message, state: FSMContext):
 
 @router.message(AdForm.receipt, ~F.photo)
 async def process_ad_receipt_invalid(message: Message):
-  await message.answer("⚠️ Пожалуйста, отправьте чек в виде <b>фотографии</b>!")
+  await message.answer(
+      "⚠️ Пожалуйста, отправьте именно <b>фотографию или скриншот чека</b>"
+      " (картинкой)!"
+  )
 
 
 # === ВЕБ-СЕРВЕР ДЛЯ ЗАЩИТЫ ОТ СНА СЕРВЕРА (RENDER) ===
