@@ -26,7 +26,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Укажите ваш Telegram ID администратора сюда:
-ADMIN_ID = 123456789  # Замените на ваш числовой Telegram ID
+ADMIN_ID = 123456789  # Замените 123456789 на ваш реальный числовой ID в Telegram
 
 
 class OrderForm(StatesGroup):
@@ -313,7 +313,7 @@ async def process_support_reason(message: Message, state: FSMContext):
   text = (
       "💬 <b>Служба поддержки</b>\n\n"
       "<b>Шаг 2 из 2: Прикрепить фото</b>\n"
-      "📸 Отправьте скриншот/фотографию (если есть проблема с оплатой или деталями), либо нажмите кнопку ниже, чтобы пропустить:"
+      "📸 Отправьте скриншот или фотографию (например, если есть проблема с оплатой), либо нажмите кнопку ниже, чтобы пропустить:"
   )
   await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
 
@@ -325,9 +325,7 @@ async def process_support_photo(message: Message, state: FSMContext):
   reason = data.get("reason")
   user = message.from_user
 
-  user_info = (
-      f"@{user.username}" if user.username else f"ID: {user.id}"
-  )
+  user_info = f"@{user.username}" if user.username else f"ID: {user.id}"
   if user.full_name:
     user_info = f"{user.full_name} ({user_info})"
 
@@ -369,9 +367,7 @@ async def skip_support_photo(callback: CallbackQuery, state: FSMContext):
   reason = data.get("reason")
   user = callback.from_user
 
-  user_info = (
-      f"@{user.username}" if user.username else f"ID: {user.id}"
-  )
+  user_info = f"@{user.username}" if user.username else f"ID: {user.id}"
   if user.full_name:
     user_info = f"{user.full_name} ({user_info})"
 
@@ -414,7 +410,7 @@ async def process_support_photo_invalid(message: Message):
   )
 
 
-# === АДМИН-ПАНЕЛЬ: ОТВЕТ НА ОБРАЩЕНИЯ ЧЕРЕЗ REPLY ===
+# === АДМИН-ПАНЕЛЬ: ОТВЕТ ПОЛЬЗОВАТЕЛЮ ЧЕРЕЗ REPLY ===
 @router.message(F.reply_to_message)
 async def admin_reply_handler(message: Message):
   if message.from_user.id != ADMIN_ID:
@@ -1314,6 +1310,32 @@ async def process_receipt_photo(message: Message, state: FSMContext):
     USER_ORDERS[user_id] = []
   USER_ORDERS[user_id].append(order_info)
 
+  # Пересылка заказа и чека админу
+  user_info = f"@{user.username}" if user.username else f"ID: {user.id}"
+  if user.full_name:
+    user_info = f"{user.full_name} ({user_info})"
+
+  admin_order_text = (
+      f"🛒 <b>Новый оплаченный заказ!</b>\n\n"
+      f"• От кого: {user_info}\n"
+      f"• User ID: <code>{user.id}</code>\n"
+      f"• Услуга: <b>{data.get('service_name')}</b>\n"
+      f"• Сумма: <b>{data.get('total_price')}$</b>\n"
+      f"• Страна / Город: {data.get('country')} / {data.get('city')}\n"
+      f"• Задача: {data.get('task')}"
+  )
+
+  try:
+    photo_id = message.photo[-1].file_id
+    await message.bot.send_photo(
+        chat_id=ADMIN_ID,
+        photo=photo_id,
+        caption=admin_order_text,
+        parse_mode="HTML",
+    )
+  except Exception as e:
+    logger.error(f"Не удалось отправить заказ админу: {e}")
+
   final_text = (
       "✅ <b>Заявка и чек успешно приняты!</b>\n\n"
       "Администратор проверяет поступление средств. С вами свяжутся в"
@@ -1725,6 +1747,28 @@ async def vacancy_ask_receipt(callback: CallbackQuery, state: FSMContext):
 
 @router.message(VacancyForm.receipt, F.photo)
 async def process_vacancy_receipt(message: Message, state: FSMContext):
+  user = message.from_user
+  user_info = f"@{user.username}" if user.username else f"ID: {user.id}"
+  if user.full_name:
+    user_info = f"{user.full_name} ({user_info})"
+
+  admin_vacancy_text = (
+      f"💼 <b>Новый залог за вакансию!</b>\n\n"
+      f"• От кого: {user_info}\n"
+      f"• User ID: <code>{user.id}</code>\n"
+      f"• Чек прикреплен ниже."
+  )
+  try:
+    photo_id = message.photo[-1].file_id
+    await message.bot.send_photo(
+        chat_id=ADMIN_ID,
+        photo=photo_id,
+        caption=admin_vacancy_text,
+        parse_mode="HTML",
+    )
+  except Exception as e:
+    logger.error(f"Не удалось отправить залог вакансии админу: {e}")
+
   final_text = (
       "✅ <b>Заявка на трудоустройство и чек успешно приняты!</b>\n\n"
       "Ваша анкета передана руководству на проверку. В ближайшее время с вами"
@@ -1778,7 +1822,7 @@ async def process_start_ads(callback: CallbackQuery, state: FSMContext):
                   callback_data="adplat_channel",
               )
           ],
-          [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_home")],
+          [InlineKeyboardButton(text="⬅️ На главную", callback_data="back_home")],
       ]
   )
   await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
@@ -2057,7 +2101,7 @@ async def adpay_btc(callback: CallbackQuery, state: FSMContext):
           ]
       ]
   )
-  await callback.message.edit_text(text, reply_markup=keyword, parse_mode="HTML")
+  await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
   await callback.answer()
 
 
@@ -2075,6 +2119,31 @@ async def ad_ask_receipt(callback: CallbackQuery, state: FSMContext):
 
 @router.message(AdForm.receipt, F.photo)
 async def process_ad_receipt(message: Message, state: FSMContext):
+  user = message.from_user
+  user_info = f"@{user.username}" if user.username else f"ID: {user.id}"
+  if user.full_name:
+    user_info = f"{user.full_name} ({user_info})"
+
+  data = await state.get_data()
+  admin_ad_text = (
+      f"📢 <b>Новая оплата рекламы!</b>\n\n"
+      f"• От кого: {user_info}\n"
+      f"• User ID: <code>{user.id}</code>\n"
+      f"• Площадка: {data.get('platform')}\n"
+      f"• Срок: {data.get('duration')}\n"
+      f"• Сумма: <b>{data.get('ad_price')}$</b>"
+  )
+  try:
+    photo_id = message.photo[-1].file_id
+    await message.bot.send_photo(
+        chat_id=ADMIN_ID,
+        photo=photo_id,
+        caption=admin_ad_text,
+        parse_mode="HTML",
+    )
+  except Exception as e:
+    logger.error(f"Не удалось отправить оплату рекламы админу: {e}")
+
   final_text = (
       "✅ <b>Заявка на рекламу и чек успешно приняты!</b>\n\n"
       "Ожидайте, модератор проверит поступление средств в течение <b>25"
