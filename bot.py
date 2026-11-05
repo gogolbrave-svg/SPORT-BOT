@@ -1,4 +1,3 @@
-Вот обновленный полный код бота со всеми измененными ценами, условиями по целям, отчетам, срочности, рекламе и залогу для команды:
 import asyncio
 import datetime
 import logging
@@ -378,17 +377,17 @@ async def cmd_order(message: Message, state: FSMContext):
           ],
           [
               InlineKeyboardButton(
-                  text="👥 3 цели (+50$)", callback_data="targets_3_50"
+                  text="👥 3 цели (+40$)", callback_data="targets_3_40"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="👥 4 цели (+70$)", callback_data="targets_4_70"
+                  text="👥 4 цели (+60$)", callback_data="targets_4_60"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="👥 5 целей (+100$)", callback_data="targets_5_100"
+                  text="👥 5 целей (+80$)", callback_data="targets_5_80"
               )
           ],
           [InlineKeyboardButton(text="⬅️ Отмена", callback_data="back_home")],
@@ -677,17 +676,17 @@ async def process_start_order(callback: CallbackQuery, state: FSMContext):
           ],
           [
               InlineKeyboardButton(
-                  text="👥 3 цели (+50$)", callback_data="targets_3_50"
+                  text="👥 3 цели (+40$)", callback_data="targets_3_40"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="👥 4 цели (+70$)", callback_data="targets_4_70"
+                  text="👥 4 цели (+60$)", callback_data="targets_4_60"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="👥 5 целей (+100$)", callback_data="targets_5_100"
+                  text="👥 5 целей (+80$)", callback_data="targets_5_80"
               )
           ],
           [InlineKeyboardButton(text="⬅️ Отмена", callback_data="back_home")],
@@ -2419,4 +2418,3 @@ async def main():
 
 if __name__ == "__main__":
   asyncio.run(main())
-
