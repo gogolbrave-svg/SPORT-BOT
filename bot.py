@@ -1014,7 +1014,7 @@ async def process_task(message: Message, state: FSMContext):
           ],
           [
               InlineKeyboardButton(
-                  text="🕐 Завтра (+10$)", callback_data="urg_tomorrow_10"
+                  text="🕐 Завтра (+5$)", callback_data="urg_tomorrow_5"
               )
           ],
           [
