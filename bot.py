@@ -26,8 +26,9 @@ if not BOT_TOKEN:
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Укажите ваш Telegram ID администратора сюда:
-ADMIN_ID = 123456789  # Замените 123456789 на ваш реальный числовой ID в Telegram
+# ADMIN_ID теперь необязательный. Укажите в .env (ADMIN_ID=ваш_id) или оставьте пустым.
+admin_env = os.getenv("ADMIN_ID")
+ADMIN_ID = int(admin_env) if admin_env and admin_env.isdigit() else None
 
 
 class OrderForm(StatesGroup):
@@ -366,15 +367,16 @@ async def process_support_photo(message: Message, state: FSMContext):
   )
 
   bot = message.bot
-  try:
-    await bot.send_photo(
-        chat_id=ADMIN_ID,
-        photo=photo_id,
-        caption=admin_text,
-        parse_mode="HTML",
-    )
-  except Exception as e:
-    logger.error(f"Не удалось отправить обращение админу: {e}")
+  if ADMIN_ID:
+    try:
+      await bot.send_photo(
+          chat_id=ADMIN_ID,
+          photo=photo_id,
+          caption=admin_text,
+          parse_mode="HTML",
+      )
+    except Exception as e:
+      logger.error(f"Не удалось отправить обращение админу: {e}")
 
   success_text = (
       "✅ <b>Ваше обращение успешно отправлено!</b>\n\n"
@@ -408,12 +410,13 @@ async def skip_support_photo(callback: CallbackQuery, state: FSMContext):
   )
 
   bot = callback.bot
-  try:
-    await bot.send_message(
-        chat_id=ADMIN_ID, text=admin_text, parse_mode="HTML"
-    )
-  except Exception as e:
-    logger.error(f"Не удалось отправить обращение админу: {e}")
+  if ADMIN_ID:
+    try:
+      await bot.send_message(
+          chat_id=ADMIN_ID, text=admin_text, parse_mode="HTML"
+      )
+    except Exception as e:
+      logger.error(f"Не удалось отправить обращение админу: {e}")
 
   success_text = (
       "✅ <b>Ваше обращение успешно отправлено!</b>\n\n"
@@ -441,7 +444,7 @@ async def process_support_photo_invalid(message: Message):
 # === АДМИН-ПАНЕЛЬ: ОТВЕТ ПОЛЬЗОВАТЕЛЮ ЧЕРЕЗ REPLY ===
 @router.message(F.reply_to_message)
 async def admin_reply_handler(message: Message):
-  if message.from_user.id != ADMIN_ID:
+  if not ADMIN_ID or message.from_user.id != ADMIN_ID:
     return
 
   replied_msg = message.reply_to_message
@@ -1112,12 +1115,13 @@ async def process_cryptobot_check(callback: CallbackQuery, state: FSMContext):
       f"• Услуга: <b>{data.get('service_name')}</b>\n"
       f"• Сумма: <b>{data.get('total_price')}$</b>"
   )
-  try:
-    await callback.bot.send_message(
-        chat_id=ADMIN_ID, text=admin_text, parse_mode="HTML"
-    )
-  except Exception as e:
-    logger.error(f"Не удалось отправить уведомление админу: {e}")
+  if ADMIN_ID:
+    try:
+      await callback.bot.send_message(
+          chat_id=ADMIN_ID, text=admin_text, parse_mode="HTML"
+      )
+    except Exception as e:
+      logger.error(f"Не удалось отправить уведомление админу: {e}")
 
   final_text = (
       "✅ <b>Платеж обрабатывается!</b>\n\n"
@@ -1441,16 +1445,17 @@ async def process_receipt_photo(message: Message, state: FSMContext):
       f"• Задача: {data.get('task')}"
   )
 
-  try:
-    photo_id = message.photo[-1].file_id
-    await message.bot.send_photo(
-        chat_id=ADMIN_ID,
-        photo=photo_id,
-        caption=admin_order_text,
-        parse_mode="HTML",
-    )
-  except Exception as e:
-    logger.error(f"Не удалось отправить заказ админу: {e}")
+  if ADMIN_ID:
+    try:
+      photo_id = message.photo[-1].file_id
+      await message.bot.send_photo(
+          chat_id=ADMIN_ID,
+          photo=photo_id,
+          caption=admin_order_text,
+          parse_mode="HTML",
+      )
+    except Exception as e:
+      logger.error(f"Не удалось отправить заказ админу: {e}")
 
   final_text = (
       "✅ <b>Заявка и чек успешно приняты!</b>\n\n"
@@ -1874,16 +1879,17 @@ async def process_vacancy_receipt(message: Message, state: FSMContext):
       f"• User ID: <code>{user.id}</code>\n"
       f"• Чек прикреплен ниже."
   )
-  try:
-    photo_id = message.photo[-1].file_id
-    await message.bot.send_photo(
-        chat_id=ADMIN_ID,
-        photo=photo_id,
-        caption=admin_vacancy_text,
-        parse_mode="HTML",
-    )
-  except Exception as e:
-    logger.error(f"Не удалось отправить залог вакансии админу: {e}")
+  if ADMIN_ID:
+    try:
+      photo_id = message.photo[-1].file_id
+      await message.bot.send_photo(
+          chat_id=ADMIN_ID,
+          photo=photo_id,
+          caption=admin_vacancy_text,
+          parse_mode="HTML",
+      )
+    except Exception as e:
+      logger.error(f"Не удалось отправить залог вакансии админу: {e}")
 
   final_text = (
       "✅ <b>Заявка на трудоустройство и чек успешно приняты!</b>\n\n"
@@ -2249,16 +2255,17 @@ async def process_ad_receipt(message: Message, state: FSMContext):
       f"• Срок: {data.get('duration')}\n"
       f"• Сумма: <b>{data.get('ad_price')}$</b>"
   )
-  try:
-    photo_id = message.photo[-1].file_id
-    await message.bot.send_photo(
-        chat_id=ADMIN_ID,
-        photo=photo_id,
-        caption=admin_ad_text,
-        parse_mode="HTML",
-    )
-  except Exception as e:
-    logger.error(f"Не удалось отправить оплату рекламы админу: {e}")
+  if ADMIN_ID:
+    try:
+      photo_id = message.photo[-1].file_id
+      await message.bot.send_photo(
+          chat_id=ADMIN_ID,
+          photo=photo_id,
+          caption=admin_ad_text,
+          parse_mode="HTML",
+      )
+    except Exception as e:
+      logger.error(f"Не удалось отправить оплату рекламы админу: {e}")
 
   final_text = (
       "✅ <b>Заявка на рекламу и чек успешно приняты!</b>\n\n"
