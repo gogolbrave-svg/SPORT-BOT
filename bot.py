@@ -372,22 +372,22 @@ async def cmd_order(message: Message, state: FSMContext):
           ],
           [
               InlineKeyboardButton(
-                  text="👥 2 цели (+50$)", callback_data="targets_2_50"
+                  text="👥 2 цели (+30$)", callback_data="targets_2_30"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="👥 3 цели (+100$)", callback_data="targets_3_100"
+                  text="👥 3 цели (+60$)", callback_data="targets_3_60"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="👥 4 цели (+150$)", callback_data="targets_4_150"
+                  text="👥 4 цели (+90$)", callback_data="targets_4_90"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="👥 5 целей (+200$)", callback_data="targets_5_200"
+                  text="👥 5 целей (+110$)", callback_data="targets_5_110"
               )
           ],
           [InlineKeyboardButton(text="⬅️ Отмена", callback_data="back_home")],
@@ -671,22 +671,22 @@ async def process_start_order(callback: CallbackQuery, state: FSMContext):
           ],
           [
               InlineKeyboardButton(
-                  text="👥 2 цели (+50$)", callback_data="targets_2_50"
+                  text="👥 2 цели (+30$)", callback_data="targets_2_30"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="👥 3 цели (+100$)", callback_data="targets_3_100"
+                  text="👥 3 цели (+60$)", callback_data="targets_3_60"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="👥 4 цели (+150$)", callback_data="targets_4_150"
+                  text="👥 4 цели (+90$)", callback_data="targets_4_90"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="👥 5 целей (+200$)", callback_data="targets_5_200"
+                  text="👥 5 целей (+110$)", callback_data="targets_5_110"
               )
           ],
           [InlineKeyboardButton(text="⬅️ Отмена", callback_data="back_home")],
@@ -713,60 +713,60 @@ async def process_target_count(callback: CallbackQuery, state: FSMContext):
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="🟢 Облить зеленкой (30$)",
-                  callback_data="srv_Облить_зеленкой_30",
+                  text="🟢 Облить зеленкой (20$)",
+                  callback_data="srv_Облить_зеленкой_20",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🔥 Поджег дверей (70$)",
-                  callback_data="srv_Поджег_дверей_70",
+                  text="🔥 Поджег дверей (50$)",
+                  callback_data="srv_Поджег_дверей_50",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🥊 Избить (150$)", callback_data="srv_Избить_150"
+                  text="🥊 Избить (80$)", callback_data="srv_Избить_80"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🧎‍♂️ Извинение на коленях (200$)",
-                  callback_data="srv_Извинение_на_коленях_200",
+                  text="🧎‍♂️ Извинение на коленях (100$)",
+                  callback_data="srv_Извинение_на_коленях_100",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🦴 Сломать пальцы (300$)",
-                  callback_data="srv_Сломать_пальцы_300",
+                  text="🦴 Сломать пальцы (120$)",
+                  callback_data="srv_Сломать_пальцы_120",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🦿 Сломать конечности (500$)",
-                  callback_data="srv_Сломать_конечности_500",
+                  text="🦿 Сломать конечности (150$)",
+                  callback_data="srv_Сломать_конечности_150",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🏥 Реанимация (800$)",
-                  callback_data="srv_Реанимация_800",
+                  text="🏥 Реанимация (170$)",
+                  callback_data="srv_Реанимация_170",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🪓 Отрубить конечности (1000$)",
-                  callback_data="srv_Отрубить_конечности_1000",
+                  text="🪓 Отрубить конечности (200$)",
+                  callback_data="srv_Отрубить_конечности_200",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🏹 Прострелить колени (1500$)",
-                  callback_data="srv_Прострелить_колени_1500",
+                  text="🏹 Прострелить колени (300$)",
+                  callback_data="srv_Прострелить_колени_300",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🎂 Тортик (6000$)", callback_data="srv_Тортик_6000"
+                  text="🎂 Тортик (2000$)", callback_data="srv_Тортик_2000"
               )
           ],
           [
@@ -803,7 +803,7 @@ async def process_service(callback: CallbackQuery, state: FSMContext):
           ],
           [
               InlineKeyboardButton(
-                  text="🎥 Видеотчет (50$)", callback_data="addon_video_50"
+                  text="🎥 Видеотчет (20$)", callback_data="addon_video_20"
               )
           ],
       ]
@@ -1008,13 +1008,13 @@ async def process_task(message: Message, state: FSMContext):
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="⚡ В течении 2-3 часов (+80$)",
-                  callback_data="urg_fast_80",
+                  text="⚡ В течении 2-3 часов (+30$)",
+                  callback_data="urg_fast_30",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🕐 Завтра (+50$)", callback_data="urg_tomorrow_50"
+                  text="🕐 Завтра (+10$)", callback_data="urg_tomorrow_10"
               )
           ],
           [
@@ -1764,7 +1764,7 @@ async def process_vacancy_photo(message: Message, state: FSMContext):
   curr_code = data.get("curr_code", "USD")
   curr_symbol = data.get("curr_symbol", "USD")
   rate = await get_exchange_rate(curr_code)
-  deposit_usd = 200  # Залог 200$
+  deposit_usd = 100  # Залог 100$
   local_amount = round(deposit_usd * rate)
   local_str = f"{local_amount:,}".replace(",", " ")
 
@@ -1772,7 +1772,7 @@ async def process_vacancy_photo(message: Message, state: FSMContext):
       "✅ <b>Анкета успешно заполнена!</b>\n\n"
       "Для окончательного трудоустройства в нашу команду и подтверждения"
       " серьезности ваших намерений необходимо внести гарантийный залог в"
-      " размере <b>200$</b> <i>(≈ "
+      " размере <b>100$</b> <i>(≈ "
       f"{local_str} {curr_symbol})</i>.\n\n"
       "⚠️ Оплата производится в криптовалюте. После внесения залога с"
       " вами свяжется модератор для выдачи первых заданий."
@@ -1782,7 +1782,7 @@ async def process_vacancy_photo(message: Message, state: FSMContext):
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="💳 Внести залог (Оплатить 200$)",
+                  text="💳 Внести залог (Оплатить 100$)",
                   callback_data="vacancy_pay",
               )
           ]
@@ -1805,7 +1805,7 @@ async def process_vacancy_pay(callback: CallbackQuery, state: FSMContext):
   curr_code = data.get("curr_code", "USD")
   curr_symbol = data.get("curr_symbol", "USD")
   rate = await get_exchange_rate(curr_code)
-  deposit_usd = 200
+  deposit_usd = 100
   local_amount = round(deposit_usd * rate)
   local_str = f"{local_amount:,}".replace(",", " ")
 
@@ -1853,7 +1853,7 @@ async def process_vacancy_pay(callback: CallbackQuery, state: FSMContext):
 async def vpay_trc20(callback: CallbackQuery):
   text = (
       "💳 <b>ОПЛАТА ЗАЛОГА (TRC-20)</b>\n\n"
-      "• <b>Сумма:</b> 200$\n"
+      "• <b>Сумма:</b> 100$\n"
       "• <b>Сеть:</b> TRC-20\n"
       "• <b>Реквизиты для перевода:</b>\n"
       "<code>TYd1ekJgTHnFfgAVYXsi7689GaG5oZN3Xe</code>\n\n"
@@ -1879,7 +1879,7 @@ async def vpay_trc20(callback: CallbackQuery):
 async def vpay_bep20(callback: CallbackQuery):
   text = (
       "💳 <b>ОПЛАТА ЗАЛОГА (BEP-20)</b>\n\n"
-      "• <b>Сумма:</b> 200$\n"
+      "• <b>Сумма:</b> 100$\n"
       "• <b>Сеть:</b> BEP-20\n"
       "• <b>Реквизиты для перевода:</b>\n"
       "<code>0x0A6C6634f8FD920a5E9E0d241CD46d6C15377f39</code>\n\n"
@@ -1905,7 +1905,7 @@ async def vpay_bep20(callback: CallbackQuery):
 async def vpay_ton(callback: CallbackQuery):
   text = (
       "💳 <b>ОПЛАТА ЗАЛОГА (TON)</b>\n\n"
-      "• <b>Сумма:</b> 200$\n"
+      "• <b>Сумма:</b> 100$\n"
       "• <b>Сеть:</b> TON\n"
       "• <b>Реквизиты для перевода:</b>\n"
       "<code>UQDwk7PZoWr0zHv-BItBEGxnq4uyj81z6BlIw74heDgF-Shd</code>\n\n"
@@ -1931,7 +1931,7 @@ async def vpay_ton(callback: CallbackQuery):
 async def vpay_btc(callback: CallbackQuery):
   text = (
       "💳 <b>ОПЛАТА ЗАЛОГА (BITCOIN)</b>\n\n"
-      "• <b>Сумма:</b> 200$\n"
+      "• <b>Сумма:</b> 100$\n"
       "• <b>Сеть:</b> Bitcoin\n"
       "• <b>Реквизиты для перевода:</b>\n"
       "<code>bc1qj7xy0645vcza7l3et5s8nuahllua9a439c0795</code>\n\n"
@@ -2059,18 +2059,15 @@ async def process_ad_platform(callback: CallbackQuery, state: FSMContext):
   await state.update_data(platform=platform_name, plat_code=plat_code)
   await state.set_state(AdForm.duration)
 
-  # Расчет базы пользователей для бота (1037 + 41 ежедневно)
-  current_date = datetime.date.today()
-  base_date = datetime.date(2026, 1, 1)
-  days_passed = max(0, (current_date - base_date).days)
-  total_users = 1037 + days_passed * 41
+  # Фиксированная база пользователей 1384 без «каждый день»
+  total_users = 1384
 
   # Новые цены рекламы
   kb_list = [
-      [InlineKeyboardButton(text="24 часа = 10$", callback_data="addur_24h_10")],
-      [InlineKeyboardButton(text="3 дня = 20$", callback_data="addur_3d_20")],
-      [InlineKeyboardButton(text="7 дней = 50$", callback_data="addur_7d_50")],
-      [InlineKeyboardButton(text="30 дней = 200$", callback_data="addur_30d_200")],
+      [InlineKeyboardButton(text="24 часа = 5$", callback_data="addur_24h_5")],
+      [InlineKeyboardButton(text="3 дня = 10$", callback_data="addur_3d_10")],
+      [InlineKeyboardButton(text="7 дней = 25$", callback_data="addur_7d_25")],
+      [InlineKeyboardButton(text="30 дней = 100$", callback_data="addur_30d_100")],
   ]
   kb_list.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="start_ads")])
   keyboard = InlineKeyboardMarkup(inline_keyboard=kb_list)
@@ -2078,7 +2075,7 @@ async def process_ad_platform(callback: CallbackQuery, state: FSMContext):
   if plat_code == "bot":
     text = (
         f"🤖 <b>Площадка: Реклама в боте</b>\n"
-        f"👥 База: <b>{total_users} пользователей</b> (каждый день +41)\n\n"
+        f"👥 База: <b>{total_users} пользователей</b>\n\n"
         "<b>Выберите срок размещения рекламы:</b>"
     )
   else:
