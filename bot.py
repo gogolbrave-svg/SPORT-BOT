@@ -1008,8 +1008,8 @@ async def process_task(message: Message, state: FSMContext):
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="⚡ В течении 2-3 часов (+20$)",
-                  callback_data="urg_fast_20",
+                  text="⚡ В течении 2-3 часов (+10$)",
+                  callback_data="urg_fast_10",
               )
           ],
           [
