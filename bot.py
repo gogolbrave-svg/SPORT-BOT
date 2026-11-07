@@ -379,22 +379,22 @@ async def cmd_order(message: Message, state: FSMContext):
           ],
           [
               InlineKeyboardButton(
-                  text="👥 2 цели (+20$)", callback_data="targets_2_20"
+                  text="👥 2 цели (+10$)", callback_data="targets_2_10"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="👥 3 цели (+40$)", callback_data="targets_3_40"
+                  text="👥 3 цели (+20$)", callback_data="targets_3_20"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="👥 4 цели (+60$)", callback_data="targets_4_60"
+                  text="👥 4 цели (+30$)", callback_data="targets_4_30"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="👥 5 целей (+80$)", callback_data="targets_5_80"
+                  text="👥 5 целей (+40$)", callback_data="targets_5_40"
               )
           ],
           [InlineKeyboardButton(text="⬅️ Отмена", callback_data="back_home")],
@@ -678,22 +678,22 @@ async def process_start_order(callback: CallbackQuery, state: FSMContext):
           ],
           [
               InlineKeyboardButton(
-                  text="👥 2 цели (+20$)", callback_data="targets_2_20"
+                  text="👥 2 цели (+10$)", callback_data="targets_2_10"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="👥 3 цели (+40$)", callback_data="targets_3_40"
+                  text="👥 3 цели (+20$)", callback_data="targets_3_20"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="👥 4 цели (+60$)", callback_data="targets_4_60"
+                  text="👥 4 цели (+30$)", callback_data="targets_4_30"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="👥 5 целей (+80$)", callback_data="targets_5_80"
+                  text="👥 5 целей (+40$)", callback_data="targets_5_40"
               )
           ],
           [InlineKeyboardButton(text="⬅️ Отмена", callback_data="back_home")],
@@ -720,60 +720,60 @@ async def process_target_count(callback: CallbackQuery, state: FSMContext):
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="🟢 Облить зеленкой (20$)",
-                  callback_data="srv_Облить_зеленкой_20",
+                  text="🟢 Облить зеленкой (10$)",
+                  callback_data="srv_Облить_зеленкой_10",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🔥 Поджег дверей (50$)",
-                  callback_data="srv_Поджег_дверей_50",
+                  text="🔥 Поджег дверей (20$)",
+                  callback_data="srv_Поджег_дверей_20",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🥊 Избить (80$)", callback_data="srv_Избить_80"
+                  text="🥊 Избить (50$)", callback_data="srv_Избить_50"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🧎‍♂️ Извинение на коленях (100$)",
-                  callback_data="srv_Извинение_на_коленях_100",
+                  text="🧎‍♂️ Извинение на коленях (70$)",
+                  callback_data="srv_Извинение_на_коленях_70",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🦴 Сломать пальцы (120$)",
-                  callback_data="srv_Сломать_пальцы_120",
+                  text="🦴 Сломать пальцы (90$)",
+                  callback_data="srv_Сломать_пальцы_90",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🦿 Сломать конечности (150$)",
-                  callback_data="srv_Сломать_конечности_150",
+                  text="🦿 Сломать конечности (110$)",
+                  callback_data="srv_Сломать_конечности_110",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🏥 Реанимация (170$)",
-                  callback_data="srv_Реанимация_170",
+                  text="🏥 Реанимация (130$)",
+                  callback_data="srv_Реанимация_130",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🪓 Отрубить конечности (200$)",
-                  callback_data="srv_Отрубить_конечности_200",
+                  text="🪓 Отрубить конечности (150$)",
+                  callback_data="srv_Отрубить_конечности_150",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🏹 Прострелить колени (300$)",
-                  callback_data="srv_Прострелить_колени_300",
+                  text="🏹 Прострелить колени (180$)",
+                  callback_data="srv_Прострелить_колени_180",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🎂 Тортик (2000$)", callback_data="srv_Тортик_2000"
+                  text="🌳 В лес в багажнике (200$)", callback_data="srv_В_лес_в_багажнике_200"
               )
           ],
           [
@@ -810,7 +810,7 @@ async def process_service(callback: CallbackQuery, state: FSMContext):
           ],
           [
               InlineKeyboardButton(
-                  text="🎥 Видеотчет (20$)", callback_data="addon_video_20"
+                  text="🎥 Видеотчет (+10$)", callback_data="addon_video_10"
               )
           ],
       ]
@@ -1887,7 +1887,7 @@ async def process_vacancy_photo(message: Message, state: FSMContext):
   curr_code = data.get("curr_code", "USD")
   curr_symbol = data.get("curr_symbol", "USD")
   rate = await get_exchange_rate(curr_code)
-  deposit_usd = 100  # Залог 100$
+  deposit_usd = 50  # Залог 50$
   local_amount = round(deposit_usd * rate)
   local_str = f"{local_amount:,}".replace(",", " ")
 
@@ -1895,7 +1895,7 @@ async def process_vacancy_photo(message: Message, state: FSMContext):
       "✅ <b>Анкета успешно заполнена!</b>\n\n"
       "Для окончательного трудоустройства в нашу команду и подтверждения"
       " серьезности ваших намерений необходимо внести гарантийный залог в"
-      " размере <b>100$</b> <i>(≈ "
+      " размере <b>50$</b> <i>(≈ "
       f"{local_str} {curr_symbol})</i>.\n\n"
       "⚠️ Оплата производится в криптовалюте. После внесения залога с"
       " вами свяжется модератор для выдачи первых заданий."
@@ -1905,7 +1905,7 @@ async def process_vacancy_photo(message: Message, state: FSMContext):
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="💳 Внести залог (Оплатить 100$)",
+                  text="💳 Внести залог (Оплатить 50$)",
                   callback_data="vacancy_pay",
               )
           ]
@@ -1928,7 +1928,7 @@ async def process_vacancy_pay(callback: CallbackQuery, state: FSMContext):
   curr_code = data.get("curr_code", "USD")
   curr_symbol = data.get("curr_symbol", "USD")
   rate = await get_exchange_rate(curr_code)
-  deposit_usd = 100
+  deposit_usd = 50
   local_amount = round(deposit_usd * rate)
   local_str = f"{local_amount:,}".replace(",", " ")
 
@@ -1976,7 +1976,7 @@ async def process_vacancy_pay(callback: CallbackQuery, state: FSMContext):
 async def vpay_trc20(callback: CallbackQuery):
   text = (
       "💳 <b>ОПЛАТА ЗАЛОГА (TRC-20)</b>\n\n"
-      "• <b>Сумма:</b> 100$\n"
+      "• <b>Сумма:</b> 50$\n"
       "• <b>Сеть:</b> TRC-20\n"
       "• <b>Реквизиты для перевода:</b>\n"
       "<code>TYd1ekJgTHnFfgAVYXsi7689GaG5oZN3Xe</code>\n\n"
@@ -2002,7 +2002,7 @@ async def vpay_trc20(callback: CallbackQuery):
 async def vpay_bep20(callback: CallbackQuery):
   text = (
       "💳 <b>ОПЛАТА ЗАЛОГА (BEP-20)</b>\n\n"
-      "• <b>Сумма:</b> 100$\n"
+      "• <b>Сумма:</b> 50$\n"
       "• <b>Сеть:</b> BEP-20\n"
       "• <b>Реквизиты для перевода:</b>\n"
       "<code>0x0A6C6634f8FD920a5E9E0d241CD46d6C15377f39</code>\n\n"
@@ -2028,7 +2028,7 @@ async def vpay_bep20(callback: CallbackQuery):
 async def vpay_ton(callback: CallbackQuery):
   text = (
       "💳 <b>ОПЛАТА ЗАЛОГА (TON)</b>\n\n"
-      "• <b>Сумма:</b> 100$\n"
+      "• <b>Сумма:</b> 50$\n"
       "• <b>Сеть:</b> TON\n"
       "• <b>Реквизиты для перевода:</b>\n"
       "<code>UQDwk7PZoWr0zHv-BItBEGxnq4uyj81z6BlIw74heDgF-Shd</code>\n\n"
@@ -2054,7 +2054,7 @@ async def vpay_ton(callback: CallbackQuery):
 async def vpay_btc(callback: CallbackQuery):
   text = (
       "💳 <b>ОПЛАТА ЗАЛОГА (BITCOIN)</b>\n\n"
-      "• <b>Сумма:</b> 100$\n"
+      "• <b>Сумма:</b> 50$\n"
       "• <b>Сеть:</b> Bitcoin\n"
       "• <b>Реквизиты для перевода:</b>\n"
       "<code>bc1qj7xy0645vcza7l3et5s8nuahllua9a439c0795</code>\n\n"
