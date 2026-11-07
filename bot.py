@@ -39,6 +39,7 @@ class OrderForm(StatesGroup):
   service = State()
   addon = State()
   country = State()
+  target_info = State()  # Новое состояние для ФИО, паспортных данных и т.д.
   city = State()
   address = State()
   photos = State()
@@ -400,7 +401,7 @@ async def cmd_order(message: Message, state: FSMContext):
       ]
   )
   await message.answer(
-      "<b>Шаг 1 из 8: Количество целей</b>\n\nВыберите количество целей:",
+      "<b>Шаг 1 из 9: Количество целей</b>\n\nВыберите количество целей:",
       reply_markup=keyboard,
       parse_mode="HTML",
   )
@@ -699,7 +700,7 @@ async def process_start_order(callback: CallbackQuery, state: FSMContext):
       ]
   )
   await callback.message.edit_text(
-      "<b>Шаг 1 из 8: Количество целей</b>\n\nВыберите количество целей:",
+      "<b>Шаг 1 из 9: Количество целей</b>\n\nВыберите количество целей:",
       reply_markup=keyboard,
       parse_mode="HTML",
   )
@@ -783,7 +784,7 @@ async def process_target_count(callback: CallbackQuery, state: FSMContext):
       ]
   )
   await callback.message.edit_text(
-      f"<b>Шаг 2 из 8: Выбор услуги</b>\n\nВыбрано целей: <b>{count}</b>"
+      f"<b>Шаг 2 из 9: Выбор услуги</b>\n\nВыбрано целей: <b>{count}</b>"
       f" (+{price}$)\nВыберите нужную услугу:",
       reply_markup=keyboard,
       parse_mode="HTML",
@@ -815,7 +816,7 @@ async def process_service(callback: CallbackQuery, state: FSMContext):
       ]
   )
   await callback.message.edit_text(
-      f"<b>Шаг 3 из 8: Отчет</b>\n\nВыбрана услуга: <b>{service_name}</b>"
+      f"<b>Шаг 3 из 9: Отчет</b>\n\nВыбрана услуга: <b>{service_name}</b>"
       f" ({price}$)\n\nВыберите тип отчета:",
       reply_markup=keyboard,
       parse_mode="HTML",
@@ -882,7 +883,7 @@ async def process_addon(callback: CallbackQuery, state: FSMContext):
       ]
   )
   await callback.message.edit_text(
-      "<b>Шаг 4 из 8: Выбор страны</b>\n\nВыберите страну из списка:",
+      "<b>Шаг 4 из 9: Выбор страны</b>\n\nВыберите страну из списка:",
       reply_markup=keyboard,
       parse_mode="HTML",
   )
@@ -919,13 +920,26 @@ async def process_country(callback: CallbackQuery, state: FSMContext):
   data = await state.get_data()
   target_count = data.get("target_count", 1)
 
+  await state.set_state(OrderForm.target_info)
+  info_prompt = (
+      f"<b>Шаг 5 из 9: Данные цели (целей)</b>\n\nВыбрано: <b>{selected}</b>\n\n"
+      f"{'Введите ФИО, известные паспортные данные, дату рождения или другую информацию по каждой цели:' if target_count > 1 else 'Введите ФИО, известные паспортные данные, дату рождения или другую информацию по цели (можно просто имя):'}"
+  )
+  await callback.message.edit_text(info_prompt, parse_mode="HTML")
+  await callback.answer()
+
+
+@router.message(OrderForm.target_info, F.text)
+async def process_target_info(message: Message, state: FSMContext):
+  await state.update_data(target_info=message.text.strip())
   await state.set_state(OrderForm.city)
+  data = await state.get_data()
+  target_count = data.get("target_count", 1)
   city_prompt = (
-      f"<b>Шаг 5 из 8: Город(а)</b>\n\nВыбрано: <b>{selected}</b>\n\n"
+      f"<b>Шаг 6 из 9: Город(а)</b>\n\n"
       f"{'Введите названия городов целей текстом:' if target_count > 1 else 'Введите название города текстом:'}"
   )
-  await callback.message.edit_text(city_prompt, parse_mode="HTML")
-  await callback.answer()
+  await message.answer(city_prompt, parse_mode="HTML")
 
 
 @router.message(OrderForm.city, F.text)
@@ -935,7 +949,7 @@ async def process_city(message: Message, state: FSMContext):
   data = await state.get_data()
   target_count = data.get("target_count", 1)
   address_prompt = (
-      f"<b>Шаг 6 из 8: Адреса целей</b>\n\nГород(а):"
+      f"<b>Шаг 7 из 9: Адреса целей</b>\n\nГород(а):"
       f" <b>{message.text.strip()}</b>\n\n"
       f"{'Введите точные адреса всех целей:' if target_count > 1 else 'Введите точный адрес цели:'}"
   )
@@ -958,7 +972,7 @@ async def process_address(message: Message, state: FSMContext):
       ]
   )
   photos_prompt = (
-      f"<b>Шаг 7 из 8: Фотографии целей</b>\n\n📷 Отправьте фотографии целей (для"
+      f"<b>Шаг 8 из 9: Фотографии целей</b>\n\n📷 Отправьте фотографии целей (для"
       f" {'каждой цели' if target_count > 1 else 'цели'}). Как закончите,"
       " нажмите «Готово»:"
   )
@@ -999,7 +1013,7 @@ async def process_photo(message: Message, state: FSMContext):
 async def finish_photos(callback: CallbackQuery, state: FSMContext):
   await state.set_state(OrderForm.task)
   await callback.message.edit_text(
-      "<b>Шаг 8 из 8: Задача</b>\n\nПодробно опишите, что нужно сделать по каждой"
+      "<b>Шаг 9 из 9: Задача</b>\n\nПодробно опишите, что нужно сделать по каждой"
       " цели, можете рассказать свою историю и указать все важные детали:",
       parse_mode="HTML",
   )
@@ -1088,6 +1102,7 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
       f"• Отчет: <b>{data.get('addon_type')}</b> ({addon_price}$)\n"
       f"• Срочность: <b>{urgency_display}</b>\n"
       f"• Страна: <b>{data.get('country')}</b>\n"
+      f"• Данные целей (ФИО/паспорт): <b>{data.get('target_info')}</b>\n"
       f"• Город(а): <b>{data.get('city')}</b>\n"
       f"• Адрес(а): <b>{data.get('address')}</b>\n"
       f"• Фотографий: <b>{len(data.get('photos', []))}</b>\n"
@@ -1648,6 +1663,7 @@ async def process_receipt_photo(message: Message, state: FSMContext):
       f"• Услуга: <b>{data.get('service_name')}</b>\n"
       f"• Сумма: <b>{data.get('total_price')}$</b>\n"
       f"• Страна / Город: {data.get('country')} / {data.get('city')}\n"
+      f"• Данные целей: {data.get('target_info')}\n"
       f"• Задача: {data.get('task')}"
   )
 
