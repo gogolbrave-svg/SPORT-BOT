@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import hashlib
 import logging
 import os
 import random
@@ -22,6 +23,8 @@ from dotenv import load_dotenv
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CRYPTO_BOT_TOKEN = os.getenv("CRYPTO_BOT_TOKEN")
+ANYPAY_PROJECT_ID = os.getenv("ANYPAY_PROJECT_ID")
+ANYPAY_SECRET_KEY = os.getenv("ANYPAY_SECRET_KEY")
 
 if not BOT_TOKEN:
   raise ValueError("❌ BOT_TOKEN не найден!")
@@ -238,6 +241,26 @@ async def create_cryptobot_invoice(amount_usd: float, description: str) -> str:
   except Exception as e:
     logger.error(f"Ошибка создания CryptoBot инвойса: {e}")
   return ""
+
+
+# === ФУНКЦИЯ СОЗДАНИЯ ССЫЛКИ ANYPAY ===
+def generate_anypay_url(order_id: int, amount: float, currency: str = "RUB") -> str:
+  """Генерация защищенной ссылки на оплату через AnyPay"""
+  if not ANYPAY_PROJECT_ID or not ANYPAY_SECRET_KEY:
+    return ""
+  sign_str = f"{ANYPAY_PROJECT_ID}:{amount}:{ANYPAY_SECRET_KEY}:{currency}:{order_id}"
+  sign = hashlib.sha256(sign_str.encode("utf-8")).hexdigest()
+
+  url = (
+      f"https://anypay.io/merchant?"
+      f"merchant_id={ANYPAY_PROJECT_ID}&"
+      f"amount={amount}&"
+      f"currency={currency}&"
+      f"pay_id={order_id}&"
+      f"sign={sign}&"
+      f"desc=Order_{order_id}"
+  )
+  return url
 
 
 # === ФУНКЦИЯ ДЛЯ ГЕНЕРАЦИИ РЕПУТАЦИИ (РАСТЕТ ЕЖЕДНЕВНО) ===
@@ -1116,6 +1139,7 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   total_price = data.get("total_price", 250)
   curr_symbol = data.get("curr_symbol", "USD")
   curr_code = data.get("curr_code", "USD")
+  country = data.get("country", "")
   rate = await get_exchange_rate(curr_code)
   local_amount = round(total_price * rate)
   local_str = f"{local_amount:,}".replace(",", " ")
@@ -1130,36 +1154,140 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
       "⚠️ Выберите удобный способ оплаты ниже 👇"
   )
 
+  keyboard_buttons = [
+      [
+          InlineKeyboardButton(
+              text=f"⭐ Оплатить звездами ({stars_amount} ⭐)",
+              callback_data="pay_stars",
+          )
+      ]
+  ]
+
+  # Добавляем оплату картой (AnyPay) ТОЛЬКО для России, Украины, Беларуси и Казахстана
+  if country in ["Россия", "Украина", "Беларусь", "Казахстан"]:
+    keyboard_buttons.append([
+        InlineKeyboardButton(
+            text="💳 Оплатить картой",
+            callback_data="pay_anypay_card",
+        )
+    ])
+
+  keyboard_buttons.extend([
+      [
+          InlineKeyboardButton(
+              text="🤖 Авто-оплата через CryptoBot",
+              callback_data="pay_cryptobot",
+          )
+      ],
+      [
+          InlineKeyboardButton(
+              text="✅ Я разбираюсь в криптовалюте",
+              callback_data="crypto_expert",
+          )
+      ],
+      [
+          InlineKeyboardButton(
+              text="❓ Не разбираюсь (Гайд по оплате)",
+              callback_data="crypto_guide",
+          )
+      ],
+  ])
+
+  keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
+
+  await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+  await callback.answer()
+
+
+# === ОПЛАТА ЧЕРЕЗ ANYPAY (КАРТЫ РФ, УКРАИНЫ, БЕЛАРУСИ, КАЗАХСТАНА) ===
+@router.callback_query(F.data == "pay_anypay_card")
+async def process_pay_anypay_card(callback: CallbackQuery, state: FSMContext):
+  data = await state.get_data()
+  total_price = data.get("total_price", 250)
+  curr_symbol = data.get("curr_symbol", "RUB")
+  curr_code = data.get("curr_code", "RUB")
+  rate = await get_exchange_rate(curr_code)
+  local_amount = round(total_price * rate)
+
+  user_id = callback.from_user.id
+  order_id = user_id * 1000 + int(random.randint(10, 99))
+
+  pay_url = generate_anypay_url(order_id=order_id, amount=float(local_amount), currency=curr_code)
+  if not pay_url:
+    await callback.answer(
+        "❌ Ошибка: AnyPay не настроен администратором на сервере!",
+        show_alert=True,
+    )
+    return
+
+  order_info = {
+      "service_name": data.get("service_name"),
+      "total_price": total_price,
+      "status": "⏳ Ожидает оплаты картой (AnyPay)",
+  }
+  if user_id not in USER_ORDERS:
+    USER_ORDERS[user_id] = []
+  USER_ORDERS[user_id].append(order_info)
+
+  user = callback.from_user
+  user_info = f"@{user.username}" if user.username else f"ID: {user.id}"
+  if user.full_name:
+    user_info = f"{user.full_name} ({user_info})"
+
+  admin_text = (
+      f"💳 <b>Инициирован заказ с оплатой картой (AnyPay)!</b>\n\n"
+      f"• От кого: {user_info}\n"
+      f"• User ID: <code>{user.id}</code>\n"
+      f"• Услуга: <b>{data.get('service_name')}</b>\n"
+      f"• Сумма: <b>{total_price}$</b> ({local_amount} {curr_symbol})"
+  )
+  if ADMIN_ID:
+    try:
+      await callback.bot.send_message(
+          chat_id=ADMIN_ID, text=admin_text, parse_mode="HTML"
+      )
+    except Exception as e:
+      logger.error(f"Не удалось отправить уведомление админу: {e}")
+
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
+          [InlineKeyboardButton(text="💳 Перейти к оплате", url=pay_url)],
           [
               InlineKeyboardButton(
-                  text=f"⭐ Оплатить звездами ({stars_amount} ⭐)",
-                  callback_data="pay_stars",
+                  text="✅ Я оплатил(-а), проверить",
+                  callback_data="anypay_check_success",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🤖 Авто-оплата через CryptoBot",
-                  callback_data="pay_cryptobot",
-              )
-          ],
-          [
-              InlineKeyboardButton(
-                  text="✅ Я разбираюсь в криптовалюте",
-                  callback_data="crypto_expert",
-              )
-          ],
-          [
-              InlineKeyboardButton(
-                  text="❓ Не разбираюсь (Гайд по оплате)",
-                  callback_data="crypto_guide",
+                  text="⬅️ Назад к выбору", callback_data="go_to_payment"
               )
           ],
       ]
   )
-
+  local_str = f"{local_amount:,}".replace(",", " ")
+  text = (
+      "💳 <b>Оплата банковской картой</b>\n\n"
+      f"• <b>Сумма к оплате:</b> {local_str} {curr_symbol} <i>({total_price}$)</i>\n\n"
+      "Нажмите кнопку «Перейти к оплате» для совершения платежа через безопасный шлюз. После успешной оплаты нажмите кнопку проверки."
+  )
   await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+  await callback.answer()
+
+
+@router.callback_query(F.data == "anypay_check_success")
+async def process_anypay_check(callback: CallbackQuery, state: FSMContext):
+  final_text = (
+      "✅ <b>Платеж проверяется!</b>\n\n"
+      "Заявка принята. Модератор проверит поступление средств через AnyPay и свяжется с вами в течение <b>25 минут</b>."
+  )
+  keyboard = InlineKeyboardMarkup(
+      inline_keyboard=[
+          [InlineKeyboardButton(text="🏠 На главную", callback_data="back_home")]
+      ]
+  )
+  await callback.message.edit_text(final_text, reply_markup=keyboard, parse_mode="HTML")
+  await state.clear()
   await callback.answer()
 
 
