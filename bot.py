@@ -1120,13 +1120,14 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   local_amount = round(total_price * rate)
   local_str = f"{local_amount:,}".replace(",", " ")
   
-  # Расчет звезд с учетом комиссий (1$ = 75 звезд)
-  stars_amount = max(1, int(total_price * 75))
+  # Расчет звезд с повышенным количеством на покрытие комиссий на вывод (+0.75-1$ к стоимости, скрыто в звездах)
+  stars_amount = max(1, int((total_price + 1.0) * 75))
 
   text = (
       "💳 <b>ОПЛАТА ЗАКАЗА</b>\n\n"
       f"• <b>Сумма к оплате:</b> {total_price}$ <i>(≈ {local_str}"
-      f" {curr_symbol} или {stars_amount} ⭐)</i>\n\n"
+      f" {curr_symbol})</i>\n\n"
+      "🔥 <b>Самый выгодный и быстрый способ:</b> Авто-оплата через CryptoBot без комиссии и лишних переплат!\n\n"
       "⚠️ Выберите удобный способ оплаты ниже 👇"
   )
 
@@ -1134,14 +1135,14 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text=f"⭐ Оплатить звездами ({stars_amount} ⭐)",
-                  callback_data="pay_stars",
+                  text="🤖 Авто-оплата через CryptoBot (Выгодно 🔥 0%)",
+                  callback_data="pay_cryptobot",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🤖 Авто-оплата через CryptoBot",
-                  callback_data="pay_cryptobot",
+                  text=f"⭐ Оплатить звездами ({stars_amount} ⭐)",
+                  callback_data="pay_stars",
               )
           ],
           [
@@ -1168,7 +1169,8 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
 async def process_pay_stars(callback: CallbackQuery, state: FSMContext):
   data = await state.get_data()
   total_price = data.get("total_price", 250)
-  stars_amount = max(1, int(total_price * 75))
+  # Повышаем количество звезд для покрытия комиссий на вывод (+1$ скрытой стоимости)
+  stars_amount = max(1, int((total_price + 1.0) * 75))
 
   user_id = callback.from_user.id
   PENDING_STARS_ORDERS[user_id] = data
@@ -1178,7 +1180,7 @@ async def process_pay_stars(callback: CallbackQuery, state: FSMContext):
     await callback.message.bot.send_invoice(
         chat_id=user_id,
         title="Оплата спортивных услуг",
-        description=f"Оплата заказа на сумму {total_price}$ (с учетом комиссий)",
+        description=f"Оплата заказа на сумму {total_price}$ (с учетом комиссий сети)",
         payload=f"stars_order_{user_id}",
         currency="XTR",
         prices=prices,
@@ -1275,7 +1277,7 @@ async def process_pay_cryptobot(callback: CallbackQuery, state: FSMContext):
 
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
-          [InlineKeyboardButton(text="🔗 Оплатить счет", url=pay_url)],
+          [InlineKeyboardButton(text="🔗 Оплатить счет без комиссии", url=pay_url)],
           [
               InlineKeyboardButton(
                   text="✅ Я оплатил(-а), проверить",
@@ -1290,8 +1292,8 @@ async def process_pay_cryptobot(callback: CallbackQuery, state: FSMContext):
       ]
   )
   text = (
-      "🤖 <b>Оплата через CryptoBot</b>\n\n"
-      f"Сумма: <b>{total_price} USDT</b>\n\n"
+      "🤖 <b>Авто-оплата через CryptoBot (Рекомендуемый способ)</b>\n\n"
+      f"Сумма: <b>{total_price} USDT</b> (Без комиссий)\n\n"
       "Нажмите кнопку ниже для перехода на официальный защищенный платежный шлюз CryptoBot. После оплаты нажмите кнопку «Я оплатил(-а), проверить»."
   )
   await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
