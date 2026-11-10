@@ -22,7 +22,8 @@ from dotenv import load_dotenv
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CRYPTO_BOT_TOKEN = os.getenv("CRYPTO_BOT_TOKEN")
-SAFARIPAY_API_KEY = os.getenv("SAFARIPAY_API_KEY")  # API-ключ для SafariPay
+SAFARIPAY_API_KEY = os.getenv("SAFARIPAY_API_KEY")
+SAFARIPAY_MERCHANT_ID = os.getenv("SAFARIPAY_MERCHANT_ID")  # Переменная мерчанта
 
 if not BOT_TOKEN:
   raise ValueError("❌ BOT_TOKEN не найден!")
@@ -239,7 +240,7 @@ async def create_cryptobot_invoice(amount_usd: float, description: str) -> str:
   return ""
 
 
-# === ФУНКЦИЯ СОЗДАНИЯ ИНВОЙСА SAFARIPAY ===
+# === ФУНКЦИЯ СОЗДАНИЯ ИНВОЙСА SAFARIPAY С МЕРЧАНТОМ ===
 async def create_safaripay_invoice(amount: int) -> str:
   """Создает инвойс через SafariPay API (оплата картой / СБП) и возвращает ссылку для оплаты."""
   if not SAFARIPAY_API_KEY:
@@ -250,9 +251,13 @@ async def create_safaripay_invoice(amount: int) -> str:
       "X-API-Key": SAFARIPAY_API_KEY,
       "Content-Type": "application/json"
   }
+  
+  # Формируем тело запроса с обязательной суммой и мерчантом
   payload = {
       "amount": amount
   }
+  if SAFARIPAY_MERCHANT_ID:
+    payload["merchant"] = SAFARIPAY_MERCHANT_ID
 
   try:
     async with ClientSession() as session:
@@ -1118,7 +1123,7 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
       f"• Задача: <b>{data.get('task')}</b>\n\n"
       f"💵 <b>Итого к оплате:</b> <b>{total_price}$</b>\n"
       f"<i>(≈ {local_str} {curr_symbol})</i>\n\n"
-      "⚠️ <b>Внимание: Оплата принимается удобным для вас способом!</b>\n"
+      "⚠️ <b>Внимание: Выберите способ оплаты ниже!</b>\n"
       "Нажмите кнопку ниже для перевода 👇"
   )
 
@@ -1134,7 +1139,7 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
   await callback.answer()
 
 
-# === ВЫБОР СПОСОБА ОПЛАТЫ ИЛИ ГАЙД ===
+# === ВЫБОР СПОСОБА ОПЛАТЫ ИЛИ ГАЙД (СБП/Карта на первом месте) ===
 @router.callback_query(F.data == "go_to_payment")
 async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   data = await state.get_data()
@@ -1151,15 +1156,15 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
       "💳 <b>ОПЛАТА ЗАКАЗА</b>\n\n"
       f"• <b>Сумма к оплате:</b> {total_price}$ <i>(≈ {local_str}"
       f" {curr_symbol})</i>\n\n"
-      "🔥 <b>Самый быстрый и удобный способ:</b> Оплата картой или через СБП!\n\n"
-      "⚠️ Выберите способ оплаты ниже 👇"
+      "🔥 <b>Главный и самый быстрый способ:</b> Оплата картой или через СБП!\n\n"
+      "⚠️ Выберите удобный способ оплаты ниже 👇"
   )
 
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="💳 Оплата картой / СБП (SafariPay) 🔥",
+                  text="💳 Оплата картой / СБП (SafariPay) ⭐ Главный",
                   callback_data="pay_safaripay",
               )
           ],
@@ -1208,7 +1213,7 @@ async def process_pay_safaripay(callback: CallbackQuery, state: FSMContext):
   pay_url = await create_safaripay_invoice(local_amount)
   if not pay_url:
     await callback.answer(
-        "❌ Ошибка: SafariPay не настроен администратором на сервере или ошибка API!",
+        "❌ Ошибка: SafariPay не настроен или ошибка API ключа/мерчанта!",
         show_alert=True,
     )
     return
