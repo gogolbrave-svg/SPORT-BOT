@@ -86,6 +86,9 @@ PENDING_STARS_ORDERS = {}
 # Словарь для отслеживания пользователей и времени последней авто-рассылки: {user_id: datetime}
 KNOWN_USERS = {}
 
+# Словарь для хранения фоновых задач дожима пользователей на оплату: {user_id: asyncio.Task}
+PENDING_PAYMENT_TASKS = {}
+
 router = Router()
 
 
@@ -211,6 +214,39 @@ async def scheduled_broadcast(bot: Bot):
           logger.error(
               f"Не удалось отправить автосообщение пользователю {user_id}: {e}"
           )
+
+
+# === ФОНОВАЯ ЗАДАЧА ДОЖИМА ЧЕРЕЗ 30 МИНУТ ПОСЛЕ ВХОДА В ОПЛАТУ ===
+async def payment_reminder_task(bot: Bot, user_id: int):
+  try:
+    await asyncio.sleep(30 * 60) # Ждем 30 минут
+    reminder_text = (
+        "⏳ <b>Вы не завершили оформление заказа!</b>\n\n"
+        "Напоминаем, что ваша заявка ждет подтверждения. Вернитесь в бот, завершите оформление заказа и получите <b>скидку -20%</b> на текущие услуги!\n\n"
+        "Не упустите возможность решить вашу задачу на лучших условиях 👇"
+    )
+    reminder_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🔥 Вернуться и завершить заказ (-20%)",
+                    callback_data="start_order",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🏠 На главную", callback_data="back_home"
+                )
+            ],
+        ]
+    )
+    await bot.send_message(
+        chat_id=user_id, text=reminder_text, reply_markup=reminder_keyboard, parse_mode="HTML"
+    )
+  except asyncio.CancelledError:
+    pass
+  except Exception as e:
+    logger.error(f"Не удалось отправить напоминание об оплате пользователю {user_id}: {e}")
 
 
 # === ФУНКЦИЯ СОЗДАНИЯ ИНВОЙСА CRYPTOBOT ===
@@ -1139,6 +1175,15 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
 # === ВЫБОР СПОСОБА ОПЛАТЫ ИЛИ ГАЙД ===
 @router.callback_query(F.data == "go_to_payment")
 async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
+  user_id = callback.from_user.id
+  
+  # Запускаем таймер-дожим на 30 минут (если пользователь уже запускал, отменяем старый)
+  if user_id in PENDING_PAYMENT_TASKS:
+    PENDING_PAYMENT_TASKS[user_id].cancel()
+  PENDING_PAYMENT_TASKS[user_id] = asyncio.create_task(
+      payment_reminder_task(callback.bot, user_id)
+  )
+
   data = await state.get_data()
   total_price = data.get("total_price", 250)
   country = data.get("country", "")
@@ -1153,6 +1198,7 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
 
   text = (
       "💳 <b>ОПЛАТА ЗАКАЗА</b>\n\n"
+      f"⏳ <b>Внимание!</b> На оплату заказа выделено ровно <b>25 минут</b>. Успейте совершить перевод, пока сессия активна!\n\n"
       f"• <b>Сумма к оплате:</b> {total_price}$ <i>(≈ {local_str}"
       f" {curr_symbol})</i>\n\n"
       "🔥 <b>Самый выгодный и быстрый способ:</b> Авто-оплата через CryptoBot без комиссии и лишних переплат!\n\n"
@@ -1292,6 +1338,12 @@ async def process_pay_safari_stars(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data == "safaripay_check_success")
 async def process_safaripay_check(callback: CallbackQuery, state: FSMContext):
   user = callback.from_user
+  
+  # Отменяем фоновый дожим, так как пользователь приступил к оплате
+  if user.id in PENDING_PAYMENT_TASKS:
+    PENDING_PAYMENT_TASKS[user.id].cancel()
+    del PENDING_PAYMENT_TASKS[user.id]
+
   data = await state.get_data()
 
   order_info = {
@@ -1377,6 +1429,12 @@ async def process_pay_cryptobot(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data == "cryptobot_check_success")
 async def process_cryptobot_check(callback: CallbackQuery, state: FSMContext):
   user = callback.from_user
+  
+  # Отменяем фоновый дожим
+  if user.id in PENDING_PAYMENT_TASKS:
+    PENDING_PAYMENT_TASKS[user.id].cancel()
+    del PENDING_PAYMENT_TASKS[user.id]
+
   data = await state.get_data()
 
   order_info = {
@@ -1698,6 +1756,12 @@ async def ask_for_receipt(callback: CallbackQuery, state: FSMContext):
 @router.message(OrderForm.receipt, F.photo)
 async def process_receipt_photo(message: Message, state: FSMContext):
   user = message.from_user
+  
+  # Отменяем фоновый дожим, так как пользователь оплатил
+  if user.id in PENDING_PAYMENT_TASKS:
+    PENDING_PAYMENT_TASKS[user.id].cancel()
+    del PENDING_PAYMENT_TASKS[user.id]
+
   data = await state.get_data()
 
   order_info = {
