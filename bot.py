@@ -22,8 +22,6 @@ from dotenv import load_dotenv
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CRYPTO_BOT_TOKEN = os.getenv("CRYPTO_BOT_TOKEN")
-SAFARIPAY_API_KEY = os.getenv("SAFARIPAY_API_KEY")
-SAFARIPAY_MERCHANT_ID = os.getenv("SAFARIPAY_MERCHANT_ID")  # Переменная мерчанта
 
 if not BOT_TOKEN:
   raise ValueError("❌ BOT_TOKEN не найден!")
@@ -143,6 +141,7 @@ async def get_exchange_rate(target_currency: str) -> float:
 # === ФУНКЦИЯ ГЕНЕРАЦИИ ДИНАМИЧЕСКОЙ ДАТЫ ДЛЯ СКИДКИ ===
 def get_dynamic_discount_content():
   today = datetime.date.today()
+  # Динамически берем дату на 3 дня вперед (в пределах 2-5 дней), чтобы всегда было с запасом
   target_date = today + datetime.timedelta(days=3)
   target_day = target_date.day
   target_month = target_date.month
@@ -197,6 +196,7 @@ async def scheduled_broadcast(bot: Bot):
     await asyncio.sleep(3600)  # Проверка каждый час
     now = datetime.datetime.now()
     for user_id, last_time in list(KNOWN_USERS.items()):
+      # Если прошло 24 часа с последней рассылки
       if (
           last_time is None
           or (now - last_time).total_seconds() >= 24 * 3600
@@ -240,37 +240,6 @@ async def create_cryptobot_invoice(amount_usd: float, description: str) -> str:
   return ""
 
 
-# === ФУНКЦИЯ СОЗДАНИЯ ИНВОЙСА SAFARIPAY С МЕРЧАНТОМ ===
-async def create_safaripay_invoice(amount: int) -> str:
-  """Создает инвойс через SafariPay API (оплата картой / СБП) и возвращает ссылку для оплаты."""
-  if not SAFARIPAY_API_KEY:
-    return ""
-
-  url = "https://api.safaripay.pro/v1/invoices"
-  headers = {
-      "X-API-Key": SAFARIPAY_API_KEY,
-      "Content-Type": "application/json"
-  }
-  
-  # Формируем тело запроса с обязательной суммой и мерчантом
-  payload = {
-      "amount": amount
-  }
-  if SAFARIPAY_MERCHANT_ID:
-    payload["merchant"] = SAFARIPAY_MERCHANT_ID
-
-  try:
-    async with ClientSession() as session:
-      async with session.post(url, json=payload, headers=headers, timeout=5) as resp:
-        if resp.status == 200:
-          data = await resp.json()
-          if isinstance(data, dict):
-            return data.get("url") or data.get("pay_url") or data.get("payment_url") or data.get("link") or data.get("result", {}).get("url") or ""
-  except Exception as e:
-    logger.error(f"Ошибка создания SafariPay инвойса: {e}")
-  return ""
-
-
 # === ФУНКЦИЯ ДЛЯ ГЕНЕРАЦИИ РЕПУТАЦИИ (РАСТЕТ ЕЖЕДНЕВНО) ===
 async def get_reputation_text_and_keyboard():
   current_date = datetime.date.today()
@@ -303,6 +272,7 @@ async def get_reputation_text_and_keyboard():
 async def cmd_start(message: Message, state: FSMContext):
   await state.clear()
   user_id = message.from_user.id
+  # Регистрируем/обновляем пользователя в базе для авто-рассылки
   if user_id not in KNOWN_USERS:
     KNOWN_USERS[user_id] = datetime.datetime.now()
 
@@ -1123,7 +1093,7 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
       f"• Задача: <b>{data.get('task')}</b>\n\n"
       f"💵 <b>Итого к оплате:</b> <b>{total_price}$</b>\n"
       f"<i>(≈ {local_str} {curr_symbol})</i>\n\n"
-      "⚠️ <b>Внимание: Выберите способ оплаты ниже!</b>\n"
+      "⚠️ <b>Внимание: Оплата принимается строго в криптовалюте или звездами!</b>\n"
       "Нажмите кнопку ниже для перевода 👇"
   )
 
@@ -1139,7 +1109,7 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
   await callback.answer()
 
 
-# === ВЫБОР СПОСОБА ОПЛАТЫ ИЛИ ГАЙД (СБП/Карта на первом месте) ===
+# === ВЫБОР СПОСОБА ОПЛАТЫ ИЛИ ГАЙД ===
 @router.callback_query(F.data == "go_to_payment")
 async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   data = await state.get_data()
@@ -1150,13 +1120,14 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   local_amount = round(total_price * rate)
   local_str = f"{local_amount:,}".replace(",", " ")
   
+  # Расчет звезд с адекватной небольшой наценкой для учета конвертации при выводе без лишней разницы
   stars_amount = max(1, int(total_price * 65))
 
   text = (
       "💳 <b>ОПЛАТА ЗАКАЗА</b>\n\n"
       f"• <b>Сумма к оплате:</b> {total_price}$ <i>(≈ {local_str}"
       f" {curr_symbol})</i>\n\n"
-      "🔥 <b>Главный и самый быстрый способ:</b> Оплата картой или через СБП!\n\n"
+      "🔥 <b>Самый выгодный и быстрый способ:</b> Авто-оплата через CryptoBot без комиссии и лишних переплат!\n\n"
       "⚠️ Выберите удобный способ оплаты ниже 👇"
   )
 
@@ -1164,13 +1135,7 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="💳 Оплата картой / СБП (SafariPay) ⭐ Главный",
-                  callback_data="pay_safaripay",
-              )
-          ],
-          [
-              InlineKeyboardButton(
-                  text="🤖 Авто-оплата через CryptoBot (0%)",
+                  text="🤖 Авто-оплата через CryptoBot (Выгодно 🔥 0%)",
                   callback_data="pay_cryptobot",
               )
           ],
@@ -1199,98 +1164,12 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   await callback.answer()
 
 
-# === ОПЛАТА ЧЕРЕЗ SAFARIPAY (КАРТА / СБП) ===
-@router.callback_query(F.data == "pay_safaripay")
-async def process_pay_safaripay(callback: CallbackQuery, state: FSMContext):
-  data = await state.get_data()
-  total_price = data.get("total_price", 250)
-  curr_symbol = data.get("curr_symbol", "USD")
-  curr_code = data.get("curr_code", "USD")
-  rate = await get_exchange_rate(curr_code)
-  local_amount = round(total_price * rate)
-  local_str = f"{local_amount:,}".replace(",", " ")
-
-  pay_url = await create_safaripay_invoice(local_amount)
-  if not pay_url:
-    await callback.answer(
-        "❌ Ошибка: SafariPay не настроен или ошибка API ключа/мерчанта!",
-        show_alert=True,
-    )
-    return
-
-  keyboard = InlineKeyboardMarkup(
-      inline_keyboard=[
-          [InlineKeyboardButton(text="🔗 Оплатить картой / СБП", url=pay_url)],
-          [
-              InlineKeyboardButton(
-                  text="✅ Я оплатил(-а), проверить",
-                  callback_data="safaripay_check_success",
-              )
-          ],
-          [
-              InlineKeyboardButton(
-                  text="⬅️ Назад к выбору", callback_data="go_to_payment"
-              )
-          ],
-      ]
-  )
-  text = (
-      "💳 <b>Оплата картой / СБП (SafariPay)</b>\n\n"
-      f"• <b>Сумма к оплате:</b> {local_str} {curr_symbol} <i>({total_price}$)</i>\n\n"
-      "Нажмите кнопку ниже для перехода на защищенную страницу оплаты. После успешной оплаты нажмите кнопку «Я оплатил(-а), проверить»."
-  )
-  await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
-  await callback.answer()
-
-
-@router.callback_query(F.data == "safaripay_check_success")
-async def process_safaripay_check(callback: CallbackQuery, state: FSMContext):
-  user = callback.from_user
-  data = await state.get_data()
-
-  order_info = {
-      "service_name": data.get("service_name"),
-      "total_price": data.get("total_price"),
-      "status": "⏳ Ожидает проверки платежа SafariPay",
-  }
-  if user.id not in USER_ORDERS:
-    USER_ORDERS[user.id] = []
-  USER_ORDERS[user.id].append(order_info)
-
-  user_info = f"@{user.username}" if user.username else f"ID: {user.id}"
-  admin_text = (
-      f"💳 <b>Заказ с оплатой через SafariPay (Карта / СБП)!</b>\n\n"
-      f"• От кого: {user_info}\n"
-      f"• User ID: <code>{user.id}</code>\n"
-      f"• Услуга: <b>{data.get('service_name')}</b>\n"
-      f"• Сумма: <b>{data.get('total_price')}$</b>"
-  )
-  if ADMIN_ID:
-    try:
-      await callback.bot.send_message(
-          chat_id=ADMIN_ID, text=admin_text, parse_mode="HTML"
-      )
-    except Exception as e:
-      logger.error(f"Не удалось отправить уведомление админу: {e}")
-
-  final_text = (
-      "✅ <b>Платеж обрабатывается!</b>\n\n"
-      "Заявка принята. Модератор проверит поступление средств через SafariPay и свяжется с вами в течение <b>25 минут</b>."
-  )
-  keyboard = InlineKeyboardMarkup(
-      inline_keyboard=[
-          [InlineKeyboardButton(text="🏠 На главную", callback_data="back_home")]
-      ]
-  )
-  await callback.message.edit_text(final_text, reply_markup=keyboard, parse_mode="HTML")
-  await state.clear()
-
-
 # === ОПЛАТА ЧЕРЕЗ TELEGRAM STARS ===
 @router.callback_query(F.data == "pay_stars")
 async def process_pay_stars(callback: CallbackQuery, state: FSMContext):
   data = await state.get_data()
   total_price = data.get("total_price", 250)
+  # Расчет звезд с адекватной небольшой наценкой для учета конвертации при выводе
   stars_amount = max(1, int(total_price * 65))
 
   user_id = callback.from_user.id
@@ -1413,7 +1292,7 @@ async def process_pay_cryptobot(callback: CallbackQuery, state: FSMContext):
       ]
   )
   text = (
-      "🤖 <b>Авто-оплата через CryptoBot</b>\n\n"
+      "🤖 <b>Авто-оплата через CryptoBot (Рекомендуемый способ)</b>\n\n"
       f"Сумма: <b>{total_price} USDT</b> (Без комиссий)\n\n"
       "Нажмите кнопку ниже для перехода на официальный защищенный платежный шлюз CryptoBot. После оплаты нажмите кнопку «Я оплатил(-а), проверить»."
   )
@@ -1461,7 +1340,7 @@ async def process_cryptobot_check(callback: CallbackQuery, state: FSMContext):
       ]
   )
   await callback.message.edit_text(final_text, reply_markup=keyboard, parse_mode="HTML")
-  await state.clear()
+  await callback.state.clear()
 
 
 # === МИНИ-ГАЙД ДЛЯ НОВИЧКОВ ===
@@ -1758,6 +1637,7 @@ async def process_receipt_photo(message: Message, state: FSMContext):
     USER_ORDERS[user_id] = []
   USER_ORDERS[user_id].append(order_info)
 
+  # Пересылка заказа и чека админу
   user_info = f"@{user.username}" if user.username else f"ID: {user.id}"
   if user.full_name:
     user_info = f"{user.full_name} ({user_info})"
@@ -1816,6 +1696,7 @@ async def process_receipt_invalid(message: Message):
 # =====================================================================
 # === АНКЕТА ДЛЯ ТРУДОУСТРОЙСТВА В КОМАНДУ (ВАКАНСИИ) ===================
 # =====================================================================
+
 
 @router.callback_query(F.data == "start_vacancy")
 async def process_start_vacancy(callback: CallbackQuery, state: FSMContext):
@@ -2248,6 +2129,7 @@ async def process_vacancy_receipt_invalid(message: Message):
 # === ПОКУПКА РЕКЛАМЫ (СОТРУДНИЧЕСТВО) =================================
 # =====================================================================
 
+
 @router.callback_query(F.data == "start_ads")
 async def process_start_ads(callback: CallbackQuery, state: FSMContext):
   await state.clear()
@@ -2286,8 +2168,10 @@ async def process_ad_platform(callback: CallbackQuery, state: FSMContext):
   await state.update_data(platform=platform_name, plat_code=plat_code)
   await state.set_state(AdForm.duration)
 
+  # База пользователей 1384 без «каждый день»
   total_users = 1384
 
+  # Новые цены рекламы
   kb_list = [
       [InlineKeyboardButton(text="24 часа = 5$", callback_data="addur_24h_5")],
       [InlineKeyboardButton(text="3 дня = 10$", callback_data="addur_3d_10")],
@@ -2634,7 +2518,7 @@ async def main():
   asyncio.create_task(start_web_server())
   asyncio.create_task(
       scheduled_broadcast(bot)
-  )
+  )  # Фоновая задача авто-рассылки каждые 24 часа
   await bot.delete_webhook(drop_pending_updates=True)
   await dp.start_polling(bot)
 
