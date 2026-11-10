@@ -1120,7 +1120,7 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
       f"• Задача: <b>{data.get('task')}</b>\n\n"
       f"💵 <b>Итого к оплате:</b> <b>{total_price}$</b>\n"
       f"<i>(≈ {local_str} {curr_symbol})</i>\n\n"
-      "⚠️ <b>Внимание: Оплата принимается в криптовалюте, картой или звездами!</b>\n"
+      "⚠️ <b>Внимание: Оплата принимается в криптовалюте или звездами!</b>\n"
       "Нажмите кнопку ниже для перевода 👇"
   )
 
@@ -1161,8 +1161,16 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
 
   keyboard_buttons = []
   
-  # Если страна НЕ Украина, добавляем СБП/Карту через Safari Pay
-  if country != "Украина":
+  # Если страна — Украина, добавляем только звёзды Safari Pay и крипту (БЕЗ СБП/карты)
+  if country == "Украина":
+    keyboard_buttons.append([
+        InlineKeyboardButton(
+            text=f"⭐ Оплатить через Safari Pay звёздами ({stars_amount} ⭐)",
+            callback_data="pay_safari_stars",
+        )
+    ])
+  else:
+    # Для остальных стран добавляем и СБП/Карту, и звёзды через Safari Pay
     keyboard_buttons.append([
         InlineKeyboardButton(
             text=f"💳 Оплатить картой / СБП (~{rub_amount} ₽)",
