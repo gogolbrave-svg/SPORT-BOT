@@ -1120,8 +1120,8 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   local_amount = round(total_price * rate)
   local_str = f"{local_amount:,}".replace(",", " ")
   
-  # Расчет звезд с повышенным количеством на покрытие комиссий на вывод (+0.75-1$ к стоимости, скрыто в звездах)
-  stars_amount = max(1, int((total_price + 1.0) * 75))
+  # Расчет звезд с адекватной небольшой наценкой для учета конвертации при выводе без лишней разницы
+  stars_amount = max(1, int(total_price * 65))
 
   text = (
       "💳 <b>ОПЛАТА ЗАКАЗА</b>\n\n"
@@ -1169,8 +1169,8 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
 async def process_pay_stars(callback: CallbackQuery, state: FSMContext):
   data = await state.get_data()
   total_price = data.get("total_price", 250)
-  # Повышаем количество звезд для покрытия комиссий на вывод (+1$ скрытой стоимости)
-  stars_amount = max(1, int((total_price + 1.0) * 75))
+  # Расчет звезд с адекватной небольшой наценкой для учета конвертации при выводе
+  stars_amount = max(1, int(total_price * 65))
 
   user_id = callback.from_user.id
   PENDING_STARS_ORDERS[user_id] = data
@@ -1180,7 +1180,7 @@ async def process_pay_stars(callback: CallbackQuery, state: FSMContext):
     await callback.message.bot.send_invoice(
         chat_id=user_id,
         title="Оплата спортивных услуг",
-        description=f"Оплата заказа на сумму {total_price}$ (с учетом комиссий сети)",
+        description=f"Оплата заказа на сумму {total_price}$",
         payload=f"stars_order_{user_id}",
         currency="XTR",
         prices=prices,
@@ -1207,7 +1207,7 @@ async def process_successful_payment(message: Message, state: FSMContext):
       user_id,
       {
           "service_name": "Заказ услуг",
-          "total_price": message.successful_payment.total_amount / 75,
+          "total_price": message.successful_payment.total_amount / 65,
       },
   )
 
