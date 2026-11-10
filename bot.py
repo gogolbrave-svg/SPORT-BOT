@@ -1120,7 +1120,7 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
       f"• Задача: <b>{data.get('task')}</b>\n\n"
       f"💵 <b>Итого к оплате:</b> <b>{total_price}$</b>\n"
       f"<i>(≈ {local_str} {curr_symbol})</i>\n\n"
-      "⚠️ <b>Внимание: Оплата принимается в криптовалюте или звездами!</b>\n"
+      "⚠️ <b>Внимание: Оплата принимается в криптовалюте, картой или звездами!</b>\n"
       "Нажмите кнопку ниже для перевода 👇"
   )
 
