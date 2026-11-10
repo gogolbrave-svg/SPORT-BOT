@@ -22,6 +22,8 @@ from dotenv import load_dotenv
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CRYPTO_BOT_TOKEN = os.getenv("CRYPTO_BOT_TOKEN")
+SAFARIPAY_MERCHANT_ID = os.getenv("SAFARIPAY_MERCHANT_ID")
+SAFARIPAY_API_KEY = os.getenv("SAFARIPAY_API_KEY")
 
 if not BOT_TOKEN:
   raise ValueError("❌ BOT_TOKEN не найден!")
@@ -141,7 +143,6 @@ async def get_exchange_rate(target_currency: str) -> float:
 # === ФУНКЦИЯ ГЕНЕРАЦИИ ДИНАМИЧЕСКОЙ ДАТЫ ДЛЯ СКИДКИ ===
 def get_dynamic_discount_content():
   today = datetime.date.today()
-  # Динамически берем дату на 3 дня вперед (в пределах 2-5 дней), чтобы всегда было с запасом
   target_date = today + datetime.timedelta(days=3)
   target_day = target_date.day
   target_month = target_date.month
@@ -193,10 +194,9 @@ def get_dynamic_discount_content():
 # === ФОНОВАЯ ЗАДАЧА АВТО-РАССЫЛКИ КАЖДЫЕ 24 ЧАСА ===
 async def scheduled_broadcast(bot: Bot):
   while True:
-    await asyncio.sleep(3600)  # Проверка каждый час
+    await asyncio.sleep(3600)
     now = datetime.datetime.now()
     for user_id, last_time in list(KNOWN_USERS.items()):
-      # Если прошло 24 часа с последней рассылки
       if (
           last_time is None
           or (now - last_time).total_seconds() >= 24 * 3600
@@ -240,6 +240,34 @@ async def create_cryptobot_invoice(amount_usd: float, description: str) -> str:
   return ""
 
 
+# === ФУНКЦИЯ СОЗДАНИЯ ИНВОЙСА SAFARIPAY ===
+async def create_safaripay_invoice(amount_rub: float, method: str) -> str:
+  """Создает инвойс через Safari Pay API и возвращает публичную ссылку на оплату."""
+  if not SAFARIPAY_API_KEY:
+    return ""
+
+  url = "https://api.safaripay.pro/v1/invoices"
+  headers = {
+      "X-API-Key": SAFARIPAY_API_KEY,
+      "Content-Type": "application/json"
+  }
+  
+  payload = {
+      "amount": float(amount_rub),
+      "method": method
+  }
+
+  try:
+    async with ClientSession() as session:
+      async with session.post(f"{url}?wait=20", json=payload, headers=headers, timeout=10) as resp:
+        if resp.status in (200, 201):
+          data = await resp.json()
+          return data.get("link", "")
+  except Exception as e:
+    logger.error(f"Ошибка создания SafariPay инвойса ({method}): {e}")
+  return ""
+
+
 # === ФУНКЦИЯ ДЛЯ ГЕНЕРАЦИИ РЕПУТАЦИИ (РАСТЕТ ЕЖЕДНЕВНО) ===
 async def get_reputation_text_and_keyboard():
   current_date = datetime.date.today()
@@ -272,7 +300,6 @@ async def get_reputation_text_and_keyboard():
 async def cmd_start(message: Message, state: FSMContext):
   await state.clear()
   user_id = message.from_user.id
-  # Регистрируем/обновляем пользователя в базе для авто-рассылки
   if user_id not in KNOWN_USERS:
     KNOWN_USERS[user_id] = datetime.datetime.now()
 
@@ -1114,14 +1141,15 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
 async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   data = await state.get_data()
   total_price = data.get("total_price", 250)
+  country = data.get("country", "")
   curr_symbol = data.get("curr_symbol", "USD")
   curr_code = data.get("curr_code", "USD")
   rate = await get_exchange_rate(curr_code)
   local_amount = round(total_price * rate)
   local_str = f"{local_amount:,}".replace(",", " ")
   
-  # Расчет звезд с адекватной небольшой наценкой для учета конвертации при выводе без лишней разницы
-  stars_amount = max(1, int(total_price * 65))
+  rub_amount = max(100, int(total_price * 90))
+  stars_amount = max(1, rub_amount)
 
   text = (
       "💳 <b>ОПЛАТА ЗАКАЗА</b>\n\n"
@@ -1131,131 +1159,169 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
       "⚠️ Выберите удобный способ оплаты ниже 👇"
   )
 
-  keyboard = InlineKeyboardMarkup(
-      inline_keyboard=[
-          [
-              InlineKeyboardButton(
-                  text="🤖 Авто-оплата через CryptoBot (Выгодно 🔥 0%)",
-                  callback_data="pay_cryptobot",
-              )
-          ],
-          [
-              InlineKeyboardButton(
-                  text=f"⭐ Оплатить звездами ({stars_amount} ⭐)",
-                  callback_data="pay_stars",
-              )
-          ],
-          [
-              InlineKeyboardButton(
-                  text="✅ Я разбираюсь в криптовалюте",
-                  callback_data="crypto_expert",
-              )
-          ],
-          [
-              InlineKeyboardButton(
-                  text="❓ Не разбираюсь (Гайд по оплате)",
-                  callback_data="crypto_guide",
-              )
-          ],
-      ]
-  )
+  keyboard_buttons = []
+  
+  # Если страна НЕ Украина, добавляем СБП/Карту через Safari Pay
+  if country != "Украина":
+    keyboard_buttons.append([
+        InlineKeyboardButton(
+            text=f"💳 Оплатить картой / СБП (~{rub_amount} ₽)",
+            callback_data="pay_sbp",
+        )
+    ])
+    keyboard_buttons.append([
+        InlineKeyboardButton(
+            text=f"⭐ Оплатить через Safari Pay звёздами ({stars_amount} ⭐)",
+            callback_data="pay_safari_stars",
+        )
+    ])
+
+  keyboard_buttons.append([
+      InlineKeyboardButton(
+          text="🤖 Авто-оплата через CryptoBot (Выгодно 🔥 0%)",
+          callback_data="pay_cryptobot",
+      )
+  ])
+  keyboard_buttons.append([
+      InlineKeyboardButton(
+          text="✅ Я разбираюсь в криптовалюте",
+          callback_data="crypto_expert",
+      )
+  ])
+  keyboard_buttons.append([
+      InlineKeyboardButton(
+          text="❓ Не разбираюсь (Гайд по оплате)",
+          callback_data="crypto_guide",
+      )
+  ])
+
+  keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
 
   await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
   await callback.answer()
 
 
-# === ОПЛАТА ЧЕРЕЗ TELEGRAM STARS ===
-@router.callback_query(F.data == "pay_stars")
-async def process_pay_stars(callback: CallbackQuery, state: FSMContext):
+# === ОПЛАТА КАРТОЙ / СБП ЧЕРЕЗ SAFARIPAY ===
+@router.callback_query(F.data == "pay_sbp")
+async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
   data = await state.get_data()
   total_price = data.get("total_price", 250)
-  # Расчет звезд с адекватной небольшой наценкой для учета конвертации при выводе
-  stars_amount = max(1, int(total_price * 65))
+  rub_amount = max(100, int(total_price * 90))
 
-  user_id = callback.from_user.id
-  PENDING_STARS_ORDERS[user_id] = data
-
-  try:
-    prices = [LabeledPrice(label="Оплата услуг сервиса", amount=stars_amount)]
-    await callback.message.bot.send_invoice(
-        chat_id=user_id,
-        title="Оплата спортивных услуг",
-        description=f"Оплата заказа на сумму {total_price}$",
-        payload=f"stars_order_{user_id}",
-        currency="XTR",
-        prices=prices,
-    )
-    await callback.answer()
-  except Exception as e:
-    logger.error(f"Ошибка отправки инвойса звёзд: {e}")
+  pay_url = await create_safaripay_invoice(rub_amount, "sbp")
+  if not pay_url:
     await callback.answer(
-        "❌ Ошибка при создании счета в звездах. Попробуйте другой способ оплаты.",
+        "❌ Ошибка генерации ссылки СБП через SafariPay. Проверьте ключи API!",
         show_alert=True,
     )
+    return
 
-
-@router.pre_checkout_query()
-async def process_pre_checkout_query(pre_checkout_query: PreCheckoutQuery):
-  await pre_checkout_query.answer(ok=True)
-
-
-@router.message(F.successful_payment)
-async def process_successful_payment(message: Message, state: FSMContext):
-  user = message.from_user
-  user_id = user.id
-  data = PENDING_STARS_ORDERS.get(
-      user_id,
-      {
-          "service_name": "Заказ услуг",
-          "total_price": message.successful_payment.total_amount / 65,
-      },
+  keyboard = InlineKeyboardMarkup(
+      inline_keyboard=[
+          [InlineKeyboardButton(text="🔗 Оплатить СБП / Картой", url=pay_url)],
+          [
+              InlineKeyboardButton(
+                  text="✅ Я оплатил(-а), проверить",
+                  callback_data="safaripay_check_success",
+              )
+          ],
+          [
+              InlineKeyboardButton(
+                  text="⬅️ Назад к выбору", callback_data="go_to_payment"
+              )
+          ],
+      ]
   )
+  text = (
+      "💳 <b>Оплата картой / СБП (Safari Pay)</b>\n\n"
+      f"Сумма: <b>{rub_amount} ₽</b>\n\n"
+      "Нажмите кнопку ниже для перехода на страницу оплаты. После успешного платежа нажмите кнопку проверки."
+  )
+  await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+  await callback.answer()
+
+
+# === ОПЛАТА ЗВЁЗДАМИ ЧЕРЕЗ SAFARIPAY ===
+@router.callback_query(F.data == "pay_safari_stars")
+async def process_pay_safari_stars(callback: CallbackQuery, state: FSMContext):
+  data = await state.get_data()
+  total_price = data.get("total_price", 250)
+  rub_amount = max(1, int(total_price * 90))
+
+  pay_url = await create_safaripay_invoice(rub_amount, "stars")
+  if not pay_url:
+    await callback.answer(
+        "❌ Ошибка генерации счета Stars через SafariPay. Проверьте ключи API!",
+        show_alert=True,
+    )
+    return
+
+  keyboard = InlineKeyboardMarkup(
+      inline_keyboard=[
+          [InlineKeyboardButton(text="⭐ Оплатить звёздами (Safari Pay)", url=pay_url)],
+          [
+              InlineKeyboardButton(
+                  text="✅ Я оплатил(-а), проверить",
+                  callback_data="safaripay_check_success",
+              )
+          ],
+          [
+              InlineKeyboardButton(
+                  text="⬅️ Назад к выбору", callback_data="go_to_payment"
+              )
+          ],
+      ]
+  )
+  text = (
+      "⭐ <b>Оплата Telegram Звёздами (Safari Pay)</b>\n\n"
+      f"Сумма: <b>{rub_amount} ⭐</b>\n\n"
+      "Нажмите кнопку ниже для оплаты через защищенную ссылку Safari Pay."
+  )
+  await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+  await callback.answer()
+
+
+@router.callback_query(F.data == "safaripay_check_success")
+async def process_safaripay_check(callback: CallbackQuery, state: FSMContext):
+  user = callback.from_user
+  data = await state.get_data()
 
   order_info = {
-      "service_name": data.get("service_name", "Заказ услуг"),
-      "total_price": data.get("total_price", 0),
-      "status": "⏳ Ожидает обработки (Оплачено звездами ⭐)",
+      "service_name": data.get("service_name"),
+      "total_price": data.get("total_price"),
+      "status": "⏳ Ожидает проверки платежа SafariPay",
   }
-
-  if user_id not in USER_ORDERS:
-    USER_ORDERS[user_id] = []
-  USER_ORDERS[user_id].append(order_info)
+  if user.id not in USER_ORDERS:
+    USER_ORDERS[user.id] = []
+  USER_ORDERS[user.id].append(order_info)
 
   user_info = f"@{user.username}" if user.username else f"ID: {user.id}"
-  if user.full_name:
-    user_info = f"{user.full_name} ({user_info})"
-
-  admin_text = (
-      f"⭐ <b>Новый заказ с оплатой Telegram Stars!</b>\n\n"
+  admin_order_text = (
+      f"💳 <b>Заказ с оплатой через Safari Pay!</b>\n\n"
       f"• От кого: {user_info}\n"
       f"• User ID: <code>{user.id}</code>\n"
       f"• Услуга: <b>{data.get('service_name')}</b>\n"
-      f"• Сумма: <b>{data.get('total_price')}$</b> "
-      f"({message.successful_payment.total_amount} ⭐)"
+      f"• Сумма: <b>{data.get('total_price')}$</b>\n"
+      f"• Страна / Город: {data.get('country')} / {data.get('city')}"
   )
-
   if ADMIN_ID:
     try:
-      await message.bot.send_message(
-          chat_id=ADMIN_ID, text=admin_text, parse_mode="HTML"
+      await callback.bot.send_message(
+          chat_id=ADMIN_ID, text=admin_order_text, parse_mode="HTML"
       )
     except Exception as e:
       logger.error(f"Не удалось отправить уведомление админу: {e}")
 
   final_text = (
-      "✅ <b>Оплата звездами успешно получена!</b>\n\n"
-      "Заявка принята в работу. Администратор свяжется с вами в течение"
-      " <b>25 минут</b>."
+      "✅ <b>Платеж обрабатывается!</b>\n\n"
+      "Заявка принята. Модератор проверит поступление средств через Safari Pay и свяжется с вами в течение <b>25 минут</b>."
   )
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
           [InlineKeyboardButton(text="🏠 На главную", callback_data="back_home")]
       ]
   )
-
-  await message.answer(final_text, reply_markup=keyboard, parse_mode="HTML")
-  if user_id in PENDING_STARS_ORDERS:
-    del PENDING_STARS_ORDERS[user_id]
+  await callback.message.edit_text(final_text, reply_markup=keyboard, parse_mode="HTML")
   await state.clear()
 
 
@@ -1340,7 +1406,7 @@ async def process_cryptobot_check(callback: CallbackQuery, state: FSMContext):
       ]
   )
   await callback.message.edit_text(final_text, reply_markup=keyboard, parse_mode="HTML")
-  await callback.state.clear()
+  await state.clear()
 
 
 # === МИНИ-ГАЙД ДЛЯ НОВИЧКОВ ===
@@ -2168,10 +2234,8 @@ async def process_ad_platform(callback: CallbackQuery, state: FSMContext):
   await state.update_data(platform=platform_name, plat_code=plat_code)
   await state.set_state(AdForm.duration)
 
-  # База пользователей 1384 без «каждый день»
   total_users = 1384
 
-  # Новые цены рекламы
   kb_list = [
       [InlineKeyboardButton(text="24 часа = 5$", callback_data="addur_24h_5")],
       [InlineKeyboardButton(text="3 дня = 10$", callback_data="addur_3d_10")],
@@ -2518,7 +2582,7 @@ async def main():
   asyncio.create_task(start_web_server())
   asyncio.create_task(
       scheduled_broadcast(bot)
-  )  # Фоновая задача авто-рассылки каждые 24 часа
+  )
   await bot.delete_webhook(drop_pending_updates=True)
   await dp.start_polling(bot)
 
