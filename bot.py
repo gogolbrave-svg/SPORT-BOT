@@ -1327,7 +1327,7 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   await callback.answer()
 
 
-# === ОПЛАТА КАРТОЙ / СБП ЧЕРЕЗ SAFARIPAY (С АНИМАЦИЕЙ 5 4 3 2 1 И ЗАЩИТОЙ ОТ БАГОВ) ===
+# === ОПЛАТА КАРТОЙ / СБП ЧЕРЕЗ SAFARIPAY (МГНОВЕННАЯ ВЕБ-ССЫЛКА БЕЗ КОСТЫЛЕЙ) ===
 @router.callback_query(F.data == "pay_sbp")
 async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
   user_id = callback.from_user.id
@@ -1341,25 +1341,6 @@ async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
     del PAYMENT_TIMERS[task_key]
   ABANDONED_CHECKOUTS.pop(user_id, None)
 
-  # Анимация загрузки кнопки 5 4 3 2 1
-  for i in range(5, 0, -1):
-    anim_text = (
-        "⏳ <b>Генерация платежной ссылки...</b>\n\n"
-        f"Шлюз обрабатывает запрос. Пожалуйста, подождите: <b>{i} сек.</b>\n"
-        "<i>Кнопка иногда долго прогружает, если долго — просто нажмите её еще раз!</i>"
-    )
-    anim_kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text=f"⏳ Загрузка шлюза... ({i})", callback_data="noop")],
-            [InlineKeyboardButton(text="⬅️ Назад к выбору", callback_data="go_to_payment")]
-        ]
-    )
-    try:
-      await callback.message.edit_text(anim_text, reply_markup=anim_kb, parse_mode="HTML")
-    except Exception:
-      pass
-    await asyncio.sleep(1)
-
   data = await state.get_data()
   total_price = data.get("total_price", 250)
   rub_amount = max(100, int(total_price * 90))
@@ -1367,21 +1348,8 @@ async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
   pay_url = await create_safaripay_invoice(rub_amount, "sbp")
   if not pay_url:
     await callback.answer(
-        "❌ Шлюз долго отвечает или произошел сбой. Нажмите кнопку еще раз!",
+        "❌ Ошибка генерации ссылки через SafariPay. Проверьте ключи API!",
         show_alert=True,
-    )
-    # Возвращаем рабочую кнопку для повторного нажатия
-    fail_kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="🔄 Нажми еще раз (попробовать снова)", callback_data="pay_sbp")],
-            [InlineKeyboardButton(text="⬅️ Назад к выбору", callback_data="go_to_payment")]
-        ]
-    )
-    await callback.message.edit_text(
-        "⚠️ <b>Шлюз оплаты не ответил вовремя</b>\n\n"
-        "Так как кнопка иногда багует, пожалуйста, нажмите её еще раз — обычно со 2-й попытки всё срабатывает мгновенно!",
-        reply_markup=fail_kb,
-        parse_mode="HTML"
     )
     return
 
@@ -1404,15 +1372,10 @@ async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
   text = (
       "💳 <b>Оплата картой / СБП (Safari Pay)</b>\n\n"
       f"Сумма: <b>{rub_amount} ₽</b>\n\n"
-      "Нажмите кнопку ниже для перехода на страницу оплаты. После успешного платежа нажмите кнопку проверки."
+      "Нажмите кнопку ниже для перехода на страницу оплаты. Шлюз откроет защищенную страницу с прогревом, после чего вы сможете завершить платеж."
   )
   await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
   await callback.answer()
-
-
-@router.callback_query(F.data == "noop")
-async def process_noop(callback: CallbackQuery):
-  await callback.answer("⏳ Идет подготовка защищенного соединения, пожалуйста, подождите пару секунд...", show_alert=False)
 
 
 # === ОПЛАТА ЗВЁЗДАМИ ЧЕРЕЗ SAFARIPAY ===
