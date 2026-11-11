@@ -1113,6 +1113,25 @@ async def process_photo(message: Message, state: FSMContext):
   )
 
 
+@router.message(OrderForm.photos, ~F.photo)
+async def process_photo_invalid(message: Message, state: FSMContext):
+  # Исправлено: теперь бот не зависает, если пользователь отправляет текст вместо фото на 8-м шаге,
+  # а дает подсказку и позволяет нажать кнопку «Готово».
+  keyboard = InlineKeyboardMarkup(
+      inline_keyboard=[
+          [
+              InlineKeyboardButton(
+                  text="✅ Готово / Пропустить", callback_data="finish_photos"
+              )
+          ]
+      ]
+  )
+  await message.answer(
+      "⚠️ Пожалуйста, отправьте фотографию или нажмите кнопку «Готово / Без фото», чтобы продолжить.",
+      reply_markup=keyboard
+  )
+
+
 @router.callback_query(OrderForm.photos, F.data == "finish_photos")
 async def finish_photos(callback: CallbackQuery, state: FSMContext):
   await state.set_state(OrderForm.task)
@@ -1328,10 +1347,8 @@ async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
   total_price = data.get("total_price", 250)
   rub_amount = max(100, int(total_price * 90))
 
-  # 1. Запрос улетает СРАЗУ с 0-й секунды в фоне
   api_task = asyncio.create_task(create_safaripay_invoice(rub_amount, "sbp"))
 
-  # 2. Анимация от 5 до 1 секунд
   for current_sec in range(5, 0, -1):
     anim_text = (
         "💳 <b>Генерация защищенной ссылки...</b>\n\n"
@@ -1349,7 +1366,6 @@ async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
       pass
     await asyncio.sleep(1)
 
-  # 3. Забираем готовую ссылку
   pay_url = await api_task
 
   if not pay_url:
@@ -1414,10 +1430,8 @@ async def process_pay_safari_stars(callback: CallbackQuery, state: FSMContext):
   total_price = data.get("total_price", 250)
   rub_amount = max(1, int(total_price * 90))
 
-  # 1. Запрос улетает сразу с 0-й секунды в фоне
   api_task = asyncio.create_task(create_safaripay_invoice(rub_amount, "stars"))
 
-  # 2. Анимация от 5 до 1 секунд
   for current_sec in range(5, 0, -1):
     anim_text = (
         "⭐ <b>Генерация счета Telegram Stars...</b>\n\n"
