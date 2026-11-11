@@ -344,7 +344,7 @@ async def create_safaripay_invoice(amount_rub: float, method: str) -> str:
 
   try:
     async with ClientSession() as session:
-      async with session.post(f"{url}?wait=10", json=payload, headers=headers, timeout=10) as resp:
+      async with session.post(f"{url}?wait=15", json=payload, headers=headers, timeout=15) as resp:
         if resp.status in (200, 201):
           data = await resp.json()
           return data.get("link", "")
@@ -1321,30 +1321,42 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   await callback.answer()
 
 
-# === ОПЛАТА КАРТОЙ / СБП ЧЕРЕЗ SAFARIPAY (С АНИМАЦИЕЙ 10 9 8... 1 И ЗАЩИТОЙ ОТ БАГОВ) ===
+# === ОПЛАТА КАРТОЙ / СБП ЧЕРЕЗ SAFARIPAY (15 СЕКУНД С АНИМАЦИЕЙ И СТАТУСАМИ) ===
 @router.callback_query(F.data == "pay_sbp")
 async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
   user_id = callback.from_user.id
   chat_id = callback.message.chat.id
   message_id = callback.message.message_id
 
-  # Отменяем таймер бронирования при переходе к оплате
   task_key = (chat_id, message_id)
   if task_key in PAYMENT_TIMERS:
     PAYMENT_TIMERS[task_key].cancel()
     del PAYMENT_TIMERS[task_key]
   ABANDONED_CHECKOUTS.pop(user_id, None)
 
-  # Анимация загрузки кнопки от 10 до 1 секунды
-  for i in range(10, 0, -1):
+  # Продвинутая анимация на 15 секунд с динамическими этапами
+  stages = [
+      (15, 12, "🔒 Устанавливаем защищенное соединение с банком..."),
+      (11, 8,  "🌐 Передаем платежные реквизиты в шлюз..."),
+      (7,  4,  "⚡ Ожидаем ответа процессингового центра..."),
+      (3,  1,  "🎯 Финализируем и подготавливаем ссылку...")
+  ]
+
+  for current_sec in range(15, 0, -1):
+    status_text = "⏳ Обработка платежа..."
+    for high, low, desc in stages:
+      if low <= current_sec <= high:
+        status_text = desc
+        break
+
     anim_text = (
-        "⏳ <b>Генерация платежной ссылки...</b>\n\n"
-        f"Шлюз обрабатывает запрос. Пожалуйста, подождите: <b>{i} сек.</b>\n"
-        "<i>Кнопка иногда долго прогружает, если долго — просто нажмите её еще раз!</i>"
+        f"<b>{status_text}</b>\n\n"
+        f"Осталось подождать: <b>{current_sec} сек.</b> (Карта / СБП)\n"
+        "<i>Шлюзу требуется немного времени на генерацию безопасной ссылки.</i>"
     )
     anim_kb = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text=f"⏳ Загрузка шлюза... ({i})", callback_data="noop")],
+            [InlineKeyboardButton(text=f"⏳ Генерация шлюза... ({current_sec}с)", callback_data="noop")],
             [InlineKeyboardButton(text="⬅️ Назад к выбору", callback_data="go_to_payment")]
         ]
     )
@@ -1360,20 +1372,15 @@ async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
 
   pay_url = await create_safaripay_invoice(rub_amount, "sbp")
   if not pay_url:
-    await callback.answer(
-        "❌ Шлюз долго отвечает или произошел сбой. Нажмите кнопку еще раз!",
-        show_alert=True,
-    )
-    # Возвращаем рабочую кнопку для повторного нажатия
     fail_kb = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="🔄 Нажми еще раз (попробовать снова)", callback_data="pay_sbp")],
+            [InlineKeyboardButton(text="🔄 Попробовать еще раз", callback_data="pay_sbp")],
             [InlineKeyboardButton(text="⬅️ Назад к выбору", callback_data="go_to_payment")]
         ]
     )
     await callback.message.edit_text(
-        "⚠️ <b>Шлюз оплаты не ответил вовремя</b>\n\n"
-        "Так как кнопка иногда багует, пожалуйста, нажмите её еще раз — обычно со 2-й попытки всё срабатывает мгновенно!",
+        "⚠️ <b>Шлюз долго отвечает</b>\n\n"
+        "Такое бывает при нагрузке на банк. Нажмите кнопку еще раз, со 2-й попытки ссылка сгенерируется быстрее!",
         reply_markup=fail_kb,
         parse_mode="HTML"
     )
@@ -1382,17 +1389,8 @@ async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
           [InlineKeyboardButton(text="🔗 Оплатить СБП / Картой", url=pay_url)],
-          [
-              InlineKeyboardButton(
-                  text="✅ Я оплатил(-а), проверить",
-                  callback_data="safaripay_check_success",
-              )
-          ],
-          [
-              InlineKeyboardButton(
-                  text="⬅️ Назад к выбору", callback_data="go_to_payment"
-              )
-          ],
+          [InlineKeyboardButton(text="✅ Я оплатил(-а), проверить", callback_data="safaripay_check_success")],
+          [InlineKeyboardButton(text="⬅️ Назад к выбору", callback_data="go_to_payment")],
       ]
   )
   text = (
@@ -1406,10 +1404,10 @@ async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == "noop")
 async def process_noop(callback: CallbackQuery):
-  await callback.answer("⏳ Идет подготовка защищенного соединения, пожалуйста, подождите пару секунд...", show_alert=False)
+  await callback.answer("⏳ Идет подготовка защищенного соединения, пожалуйста, подождите...", show_alert=False)
 
 
-# === ОПЛАТА ЗВЁЗДАМИ ЧЕРЕЗ SAFARIPAY (С АНИМАЦИЕЙ 10 9 8... 1) ===
+# === ОПЛАТА ЗВЁЗДАМИ ЧЕРЕЗ SAFARIPAY (БЫСТРЫЕ 5 СЕКУНД) ===
 @router.callback_query(F.data == "pay_safari_stars")
 async def process_pay_safari_stars(callback: CallbackQuery, state: FSMContext):
   user_id = callback.from_user.id
@@ -1422,15 +1420,15 @@ async def process_pay_safari_stars(callback: CallbackQuery, state: FSMContext):
     del PAYMENT_TIMERS[task_key]
   ABANDONED_CHECKOUTS.pop(user_id, None)
 
-  # Анимация загрузки для звезд от 10 до 1 секунды
-  for i in range(10, 0, -1):
+  # Быстрая анимация на 5 секунд для звезд
+  for current_sec in range(5, 0, -1):
     anim_text = (
-        "⏳ <b>Генерация платежной ссылки (Stars)...</b>\n\n"
-        f"Шлюз обрабатывает запрос. Пожалуйста, подождите: <b>{i} сек.</b>"
+        "⭐ <b>Обработка Telegram Stars...</b>\n\n"
+        f"Мгновенный запрос шлюза: <b>{current_sec} сек.</b>"
     )
     anim_kb = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text=f"⏳ Загрузка шлюза... ({i})", callback_data="noop")],
+            [InlineKeyboardButton(text=f"⭐ Загрузка... ({current_sec}с)", callback_data="noop")],
             [InlineKeyboardButton(text="⬅️ Назад к выбору", callback_data="go_to_payment")]
         ]
     )
