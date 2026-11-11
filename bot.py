@@ -16,7 +16,7 @@ from aiogram.types import (
     PreCheckoutQuery,
     SuccessfulPayment,
 )
-from aiohttp import ClientSession, web
+from aiohttp import ClientSession, ClientTimeout, web
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -41,13 +41,13 @@ class OrderForm(StatesGroup):
   service = State()
   addon = State()
   country = State()
-  target_info = State()  # Новое состояние для ФИО, паспортных данных и т.д.
+  target_info = State()
   city = State()
   address = State()
   photos = State()
   task = State()
   urgency = State()
-  receipt = State()  # Состояние для ожидания чека
+  receipt = State()
 
 
 class VacancyForm(StatesGroup):
@@ -111,11 +111,10 @@ COUNTRY_CURRENCIES = {
 
 # === ФУНКЦИЯ ПОЛУЧЕНИЯ РЕАЛЬНЫХ КУРСОВ ВАЛЮТ ===
 async def get_exchange_rate(target_currency: str) -> float:
-  """Получает актуальный курс USD к целевой валюте из публичных API."""
   url = f"https://open.er-api.com/v6/latest/USD"
   try:
-    async with ClientSession() as session:
-      async with session.get(url, timeout=5) as response:
+    async with ClientSession(timeout=ClientTimeout(total=5)) as session:
+      async with session.get(url) as response:
         if response.status == 200:
           data = await response.json()
           rates = data.get("rates", {})
@@ -123,11 +122,9 @@ async def get_exchange_rate(target_currency: str) -> float:
             return float(rates[target_currency])
   except Exception as e:
     logger.warning(
-        f"Не удалось получить курс для {target_currency}: {e}. Используем"
-        " резервные значения."
+        f"Не удалось получить курс для {target_currency}: {e}. Используем резервные значения."
     )
 
-  # Резервные средние курсы на случай недоступности API
   fallback_rates = {
       "UAH": 41.5,
       "RUB": 95.0,
@@ -220,7 +217,7 @@ async def scheduled_broadcast(bot: Bot):
 # === ФОНОВАЯ ЗАДАЧА ДОЖИМА ЛИДОВ ЧЕРЕЗ 30 МИНУТ ===
 async def delayed_abandoned_cart_reminder(bot: Bot, user_id: int):
   try:
-    await asyncio.sleep(1800) # 30 минут
+    await asyncio.sleep(1800)
     if user_id in ABANDONED_CHECKOUTS and ABANDONED_CHECKOUTS[user_id]:
       reminder_text = (
           "👋 <b>Завершите оформление заказа!</b>\n\n"
@@ -299,7 +296,6 @@ async def run_payment_timer(bot: Bot, chat_id: int, message_id: int, base_text: 
 
 # === ФУНКЦИЯ СОЗДАНИЯ ИНВОЙСА CRYPTOBOT ===
 async def create_cryptobot_invoice(amount_usd: float, description: str) -> str:
-  """Создает инвойс через Crypto Pay API и возвращает ссылку для оплаты."""
   if not CRYPTO_BOT_TOKEN:
     return ""
 
@@ -313,8 +309,8 @@ async def create_cryptobot_invoice(amount_usd: float, description: str) -> str:
   }
 
   try:
-    async with ClientSession() as session:
-      async with session.post(url, json=payload, headers=headers, timeout=5) as resp:
+    async with ClientSession(timeout=ClientTimeout(total=5)) as session:
+      async with session.post(url, json=payload, headers=headers) as resp:
         if resp.status == 200:
           data = await resp.json()
           if data.get("ok"):
@@ -324,10 +320,10 @@ async def create_cryptobot_invoice(amount_usd: float, description: str) -> str:
   return ""
 
 
-# === ФУНКЦИЯ СОЗДАНИЯ ИНВОЙСА SAFARIPAY ===
+# === ФУНКЦИЯ СОЗДАНИЯ ИНВОЙСА SAFARIPAY (С ЗАЩИТОЙ ОТ ЗАВИСАНИЙ И ТАЙМАУТОМ) ===
 async def create_safaripay_invoice(amount_rub: float, method: str) -> str:
-  """Создает инвойс через Safari Pay API и возвращает публичную ссылку на оплату."""
   if not SAFARIPAY_API_KEY:
+    logger.error("❌ SAFARIPAY_API_KEY не задан в переменных окружения!")
     return ""
 
   url = "https://api.safaripay.pro/v1/invoices"
@@ -342,17 +338,27 @@ async def create_safaripay_invoice(amount_rub: float, method: str) -> str:
   }
 
   try:
-    async with ClientSession() as session:
-      async with session.post(f"{url}?wait=5", json=payload, headers=headers, timeout=10) as resp:
+    # Жесткий таймаут в 5 секунд на уровне клиента, чтобы бот никогда не зависал намертво
+    async with ClientSession(timeout=ClientTimeout(total=5)) as session:
+      async with session.post(f"{url}?wait=3", json=payload, headers=headers) as resp:
         if resp.status in (200, 201):
           data = await resp.json()
-          return data.get("link", "")
+          link = data.get("link", "")
+          if link:
+            return link
+          else:
+            logger.error(f"SafariPay не вернул ссылку в ответе: {data}")
+        else:
+          resp_text = await resp.text()
+          logger.error(f"SafariPay вернул ошибку {resp.status}: {resp_text}")
+  except asyncio.TimeoutError:
+    logger.error("❌ Превышено время ожидания (таймаут 5 сек) при запросе к SafariPay API.")
   except Exception as e:
-    logger.error(f"Ошибка создания SafariPay инвойса ({method}): {e}")
+    logger.error(f"❌ Ошибка отправки запроса в SafariPay ({method}): {e}")
   return ""
 
 
-# === ФУНКЦИЯ ДЛЯ ГЕНЕРАЦИИ РЕПУТАЦИИ (РАСТЕТ ЕЖЕДНЕВНО) ===
+# === ФУНКЦИЯ ДЛЯ ГЕНЕРАЦИИ РЕПУТАЦИИ ===
 async def get_reputation_text_and_keyboard():
   current_date = datetime.date.today()
   base_date = datetime.date(2026, 1, 1)
@@ -1316,7 +1322,7 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   await callback.answer()
 
 
-# === ОПЛАТА КАРТОЙ / СБП (ЗАПУСК С НУЛЕВОЙ СЕКУНДЫ, ПАРАЛЛЕЛЬНО СЧЕТЧИК 5 СЕКУНД) ===
+# === ОПЛАТА КАРТОЙ / СБП (ПАРАЛЛЕЛЬНО ЗАПРОС И АНИМАЦИЯ 5 СЕКУНД С ЗАЩИТОЙ) ===
 @router.callback_query(F.data == "pay_sbp")
 async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
   user_id = callback.from_user.id
@@ -1354,8 +1360,11 @@ async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
       pass
     await asyncio.sleep(1)
 
-  # 3. Забираем готовую ссылку (к этому моменту запрос уже выполнился)
-  pay_url = await api_task
+  # 3. Забираем готовую ссылку с таймаутом
+  try:
+    pay_url = await asyncio.wait_for(api_task, timeout=6.0)
+  except Exception:
+    pay_url = ""
 
   if not pay_url:
     fail_kb = InlineKeyboardMarkup(
@@ -1365,8 +1374,8 @@ async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
         ]
     )
     await callback.message.edit_text(
-        "⚠️ <b>Шлюз не ответил вовремя</b>\n\n"
-        "Нажмите кнопку еще раз для повторной генерации ссылки.",
+        "⚠️ <b>Шлюз не ответил вовремя или произошла ошибка соединения</b>\n\n"
+        "Пожалуйста, проверьте интернет-соединение или нажмите кнопку еще раз для повторной генерации ссылки.",
         reply_markup=fail_kb,
         parse_mode="HTML"
     )
@@ -1393,7 +1402,7 @@ async def process_noop(callback: CallbackQuery):
   await callback.answer("⏳ Создаем защищенную ссылку...", show_alert=False)
 
 
-# === ОПЛАТА ЗВЕЗДАМИ (ЗАПУСК С НУЛЕВОЙ СЕКУНДЫ, ПАРАЛЛЕЛЬНО СЧЕТЧИК 5 СЕКУНД) ===
+# === ОПЛАТА ЗВЕЗДАМИ (ПАРАЛЛЕЛЬНО ЗАПРОС И АНИМАЦИЯ 5 СЕКУНД С ЗАЩИТОЙ) ===
 @router.callback_query(F.data == "pay_safari_stars")
 async def process_pay_safari_stars(callback: CallbackQuery, state: FSMContext):
   user_id = callback.from_user.id
@@ -1431,12 +1440,23 @@ async def process_pay_safari_stars(callback: CallbackQuery, state: FSMContext):
       pass
     await asyncio.sleep(1)
 
-  pay_url = await api_task
+  try:
+    pay_url = await asyncio.wait_for(api_task, timeout=6.0)
+  except Exception:
+    pay_url = ""
 
   if not pay_url:
-    await callback.answer(
-        "❌ Ошибка генерации счета Stars через SafariPay.",
-        show_alert=True,
+    fail_kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🔄 Попробовать еще раз", callback_data="pay_safari_stars")],
+            [InlineKeyboardButton(text="⬅️ Назад к выбору", callback_data="go_to_payment")]
+        ]
+    )
+    await callback.message.edit_text(
+        "⚠️ <b>Шлюз не ответил вовремя при генерации Stars</b>\n\n"
+        "Пожалуйста, нажмите кнопку еще раз или воспользуйтесь другим методом оплаты.",
+        reply_markup=fail_kb,
+        parse_mode="HTML"
     )
     return
 
@@ -2102,7 +2122,7 @@ async def process_vacancy_photo(message: Message, state: FSMContext):
   curr_code = data.get("curr_code", "USD")
   curr_symbol = data.get("curr_symbol", "USD")
   rate = await get_exchange_rate(curr_code)
-  deposit_usd = 50  # Залог 50$
+  deposit_usd = 50
   local_amount = round(deposit_usd * rate)
   local_str = f"{local_amount:,}".replace(",", " ")
 
