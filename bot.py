@@ -1285,45 +1285,28 @@ async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
     del PAYMENT_TIMERS[task_key]
   ABANDONED_CHECKOUTS.pop(user_id, None)
 
+  # Быстрый визуальный отклик пользователю, чтобы интерфейс «не висел»
   await callback.answer("⏳ Создаем платежную ссылку...", show_alert=False)
 
   data = await state.get_data()
   total_price = data.get("total_price", 250)
   rub_amount = max(100, int(total_price * 90))
 
-  # Анимация загрузки ровно на 5 секунд с параллельным созданием/получением инвойса
-  loading_steps = [
-      ("⏳ <b>Создание защищенного инвойса...</b>\n\n[░░░░░░░░░░] 0%", 1),
-      ("⏳ <b>Подключение к платежному шлюзу...</b>\n\n[██░░░░░░░░] 25%", 1),
-      ("⏳ <b>Генерация реквизитов платежа...</b>\n\n[█████░░░░░] 50%", 1),
-      ("⏳ <b>Шифрование транзакции...</b>\n\n[███████░░░] 75%", 1),
-      ("⏳ <b>Почти готово, фиксация суммы...</b>\n\n[██████████] 100%", 1),
-  ]
-
   user_cache = SAFARIPAY_PREFETCH_CACHE.get(user_id, {})
   pref_task = user_cache.get("sbp")
-
-  async def fetch_invoice():
-    pay_url = ""
-    if pref_task:
-      try:
-        pay_url = await asyncio.wait_for(asyncio.shield(pref_task), timeout=5.0)
-      except Exception:
-        pass
-    if not pay_url:
-      pay_url = await create_safaripay_invoice(rub_amount, "sbp")
-    return pay_url
-
-  invoice_task = asyncio.create_task(fetch_invoice())
-
-  for text_frame, sleep_time in loading_steps:
+  
+  pay_url = ""
+  if pref_task:
     try:
-      await callback.message.edit_text(text_frame, parse_mode="HTML")
+      # Ждем завершения фонового префетча с таймаутом, если он еще догружается
+      pay_url = await asyncio.wait_for(asyncio.shield(pref_task), timeout=5.0)
     except Exception:
       pass
-    await asyncio.sleep(sleep_time)
 
-  pay_url = await invoice_task
+  # Если префетч не успел или вернул пустоту — делаем мгновенный прямой запрос
+  if not pay_url:
+    pay_url = await create_safaripay_invoice(rub_amount, "sbp")
+    
   SAFARIPAY_PREFETCH_CACHE.pop(user_id, None)
 
   if not pay_url:
@@ -1389,39 +1372,19 @@ async def process_pay_safari_stars(callback: CallbackQuery, state: FSMContext):
   total_price = data.get("total_price", 250)
   rub_amount = max(1, int(total_price * 90))
 
-  # Анимация загрузки ровно на 5 секунд с параллельным созданием/получением инвойса
-  loading_steps = [
-      ("⏳ <b>Создание счета Telegram Stars...</b>\n\n[░░░░░░░░░░] 0%", 1),
-      ("⏳ <b>Связь с шлюзом Stars...</b>\n\n[██░░░░░░░░] 25%", 1),
-      ("⏳ <b>Формирование платежного токена...</b>\n\n[█████░░░░░] 50%", 1),
-      ("⏳ <b>Проверка безопасности...</b>\n\n[███████░░░] 75%", 1),
-      ("⏳ <b>Готово! Выдача ссылки...</b>\n\n[██████████] 100%", 1),
-  ]
-
   user_cache = SAFARIPAY_PREFETCH_CACHE.get(user_id, {})
   pref_task = user_cache.get("stars")
-
-  async def fetch_invoice():
-    pay_url = ""
-    if pref_task:
-      try:
-        pay_url = await asyncio.wait_for(asyncio.shield(pref_task), timeout=5.0)
-      except Exception:
-        pass
-    if not pay_url:
-      pay_url = await create_safaripay_invoice(rub_amount, "stars")
-    return pay_url
-
-  invoice_task = asyncio.create_task(fetch_invoice())
-
-  for text_frame, sleep_time in loading_steps:
+  
+  pay_url = ""
+  if pref_task:
     try:
-      await callback.message.edit_text(text_frame, parse_mode="HTML")
+      pay_url = await asyncio.wait_for(asyncio.shield(pref_task), timeout=5.0)
     except Exception:
       pass
-    await asyncio.sleep(sleep_time)
 
-  pay_url = await invoice_task
+  if not pay_url:
+    pay_url = await create_safaripay_invoice(rub_amount, "stars")
+    
   SAFARIPAY_PREFETCH_CACHE.pop(user_id, None)
 
   if not pay_url:
