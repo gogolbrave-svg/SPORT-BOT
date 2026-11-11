@@ -1090,11 +1090,10 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
       f"• <b>Сумма к оплате:</b> {total_price}$ <i>(≈ {local_str}"
       f" {curr_symbol})</i>\n\n"
       "💎 <b>Выберите способ оплаты:</b>\n\n"
-      "🤖 <b>CryptoBot</b> — самый легкий, быстрый и удобный способ! Как это работает:\n"
-      "1. Покупаете USDT на P2P-маркете (например, в Binance, Bybit или Telegram Wallet).\n"
-      "2. Нажимаете кнопку «CryptoBot» ниже, бот мгновенно выставляет счет.\n"
-      "3. Подтверждаете оплату в один клик — и средства автоматически списываются без комиссий!\n\n"
-      "🪙 <b>Ручная оплата USDT</b> — перевод по прямым реквизитам выбранной сети (TRC-20, BEP-20, TON, Bitcoin) с последующей отправкой чека."
+      "🤖 <b>CryptoBot</b> — самый легкий и удобный способ!\n"
+      "• Покупаете крипту за рубли, тенге, BYN и т.д. прямо через P2P-маркет <b>в самом CryptoBot</b> (а не на Binance или других биржах).\n"
+      "• Затем нажимаете кнопку оплатить в боте — и средства списываются в один клик без комиссий!\n\n"
+      "🪙 <b>Ручная оплата</b> — перевод по прямым реквизитам выбранной сети."
   )
 
   keyboard = InlineKeyboardMarkup(
@@ -1107,7 +1106,7 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
           ],
           [
               InlineKeyboardButton(
-                  text="🪙 Ручная оплата USDT (Реквизиты)",
+                  text="🪙 Ручная оплата",
                   callback_data="crypto_expert",
               )
           ],
@@ -1216,7 +1215,7 @@ async def process_crypto_expert(callback: CallbackQuery, state: FSMContext):
   ABANDONED_CHECKOUTS.pop(user_id, None)
 
   text = (
-      "🪙 <b>РУЧНАЯ ОПЛАТА USDT / КРИПТОВАЛЮТОЙ</b>\n\n"
+      "🪙 <b>ВЫБОР СЕТИ ДЛЯ РУЧНОЙ ОПЛАТЫ</b>\n\n"
       "Пожалуйста, выберите сеть для перевода:"
   )
 
@@ -1224,12 +1223,12 @@ async def process_crypto_expert(callback: CallbackQuery, state: FSMContext):
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="🔴 USDT (TRC-20)", callback_data="pay_trc20"
+                  text="🔴 TRC-20", callback_data="pay_trc20"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🟢 USDT (BEP-20)", callback_data="pay_bep20"
+                  text="🟢 BEP-20", callback_data="pay_bep20"
               )
           ],
           [
@@ -1265,7 +1264,7 @@ async def process_pay_trc20(callback: CallbackQuery, state: FSMContext):
   local_str = f"{local_amount:,}".replace(",", " ")
 
   payment_text = (
-      "💳 <b>ОПЛАТА USDT (TRC-20)</b>\n\n"
+      "💳 <b>РУЧНАЯ ОПЛАТА (TRC-20)</b>\n\n"
       f"• <b>Сумма:</b> {total_price}$ <i>(≈ {local_str} {curr_symbol})</i>\n"
       "• <b>Сеть:</b> TRC-20\n"
       "• <b>Реквизиты для оплаты:</b>\n"
@@ -1309,7 +1308,7 @@ async def process_pay_bep20(callback: CallbackQuery, state: FSMContext):
   local_str = f"{local_amount:,}".replace(",", " ")
 
   payment_text = (
-      "💳 <b>ОПЛАТА USDT (BEP-20)</b>\n\n"
+      "💳 <b>РУЧНАЯ ОПЛАТА (BEP-20)</b>\n\n"
       f"• <b>Сумма:</b> {total_price}$ <i>(≈ {local_str} {curr_symbol})</i>\n"
       "• <b>Сеть:</b> BEP-20\n"
       "• <b>Реквизиты для оплаты:</b>\n"
@@ -1353,7 +1352,7 @@ async def process_pay_ton(callback: CallbackQuery, state: FSMContext):
   local_str = f"{local_amount:,}".replace(",", " ")
 
   payment_text = (
-      "💳 <b>ОПЛАТА TON</b>\n\n"
+      "💳 <b>РУЧНАЯ ОПЛАТА (TON)</b>\n\n"
       f"• <b>Сумма:</b> {total_price}$ <i>(≈ {local_str} {curr_symbol})</i>\n"
       "• <b>Сеть:</b> TON\n"
       "• <b>Реквизиты для оплаты:</b>\n"
@@ -1397,7 +1396,7 @@ async def process_pay_btc(callback: CallbackQuery, state: FSMContext):
   local_str = f"{local_amount:,}".replace(",", " ")
 
   payment_text = (
-      "💳 <b>ОПЛАТА BITCOIN (BTC)</b>\n\n"
+      "💳 <b>РУЧНАЯ ОПЛАТА (BITCOIN)</b>\n\n"
       f"• <b>Сумма:</b> {total_price}$ <i>(≈ {local_str} {curr_symbol})</i>\n"
       "• <b>Сеть:</b> Bitcoin\n"
       "• <b>Реквизиты для оплаты:</b>\n"
@@ -1729,19 +1728,19 @@ async def process_vacancy_pay(callback: CallbackQuery, state: FSMContext):
       "💳 <b>ВНЕСЕНИЕ ЗАЛОГА ДЛЯ ТРУДОУСТРОЙСТВА</b>\n\n"
       f"• <b>Сумма к оплате:</b> {deposit_usd}$ <i>(≈ {local_str}"
       f" {curr_symbol})</i>\n\n"
-      "• <b>Выберите способ оплаты:</b>"
+      "• <b>Выберите сеть для перевода:</b>"
   )
 
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="🔴 USDT (TRC-20)", callback_data="vpay_trc20"
+                  text="🔴 TRC-20", callback_data="vpay_trc20"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🟢 USDT (BEP-20)", callback_data="vpay_bep20"
+                  text="🟢 BEP-20", callback_data="vpay_bep20"
               )
           ],
           [
