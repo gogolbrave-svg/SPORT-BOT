@@ -1,4 +1,4 @@
-import asyncio
+Import asyncio
 import datetime
 import logging
 import os
@@ -324,6 +324,7 @@ async def create_safaripay_invoice(amount_rub: float, method: str) -> str:
       "method": method
   }
 
+  # Увеличено до 4 попыток с быстрым бэкоффом для мгновенного создания
   for attempt in range(1, 5):
     try:
       async with ClientSession() as session:
@@ -1116,7 +1117,6 @@ async def process_task(message: Message, state: FSMContext):
 
 @router.callback_query(OrderForm.urgency, F.data.startswith("urg_"))
 async def process_urgency(callback: CallbackQuery, state: FSMContext):
-  user_id = callback.from_user.id
   parts = callback.data.split("_")
   urg_type = parts[1]
   urg_price = int(parts[2])
@@ -1145,16 +1145,6 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
   rate = await get_exchange_rate(curr_code)
   local_amount = round(total_price * rate)
   local_str = f"{local_amount:,}".replace(",", " ")
-  
-  rub_amount = max(100, int(total_price * 90))
-
-  # Ранняя глубокая предзагрузка (Deep Prefetch):
-  # Ссылки на карту/СБП и звезды начинают фоново генерироваться прямо на шаге генерации сводки заказа!
-  if not crypto_only:
-    SAFARIPAY_PREFETCH_CACHE[user_id] = {
-        "sbp": asyncio.create_task(create_safaripay_invoice(rub_amount, "sbp")),
-        "stars": asyncio.create_task(create_safaripay_invoice(rub_amount, "stars"))
-    }
 
   urgency_display = (
       f"{urgency} (+{urg_price}$)"
@@ -1214,8 +1204,8 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   rub_amount = max(100, int(total_price * 90))
   stars_amount = max(1, rub_amount)
 
-  # На случай если пользователь вернулся назад или пересоздал оплату
-  if not crypto_only and user_id not in SAFARIPAY_PREFETCH_CACHE:
+  # Моментальный префетч инвойсов в фоновом режиме при переходе на экран оплаты
+  if not crypto_only:
     SAFARIPAY_PREFETCH_CACHE[user_id] = {
         "sbp": asyncio.create_task(create_safaripay_invoice(rub_amount, "sbp")),
         "stars": asyncio.create_task(create_safaripay_invoice(rub_amount, "stars"))
@@ -1295,6 +1285,9 @@ async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
     del PAYMENT_TIMERS[task_key]
   ABANDONED_CHECKOUTS.pop(user_id, None)
 
+  # Быстрый визуальный отклик пользователю, чтобы интерфейс «не висел»
+  await callback.answer("⏳ Создаем платежную ссылку...", show_alert=False)
+
   data = await state.get_data()
   total_price = data.get("total_price", 250)
   rub_amount = max(100, int(total_price * 90))
@@ -1305,11 +1298,12 @@ async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
   pay_url = ""
   if pref_task:
     try:
-      # Ссылки уже генерируются с шага выбора срочности, поэтому здесь они выдаются мгновенно
-      pay_url = await asyncio.wait_for(asyncio.shield(pref_task), timeout=3.0)
+      # Ждем завершения фонового префетча с таймаутом, если он еще догружается
+      pay_url = await asyncio.wait_for(asyncio.shield(pref_task), timeout=5.0)
     except Exception:
       pass
 
+  # Если префетч не успел или вернул пустоту — делаем мгновенный прямой запрос
   if not pay_url:
     pay_url = await create_safaripay_invoice(rub_amount, "sbp")
     
@@ -1353,7 +1347,6 @@ async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
       "Ссылка готова! Нажмите кнопку ниже для перевода."
   )
   await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
-  await callback.answer()
 
 
 @router.callback_query(F.data == "noop")
@@ -1373,6 +1366,8 @@ async def process_pay_safari_stars(callback: CallbackQuery, state: FSMContext):
     del PAYMENT_TIMERS[task_key]
   ABANDONED_CHECKOUTS.pop(user_id, None)
 
+  await callback.answer("⏳ Создаем счет в Telegram Stars...", show_alert=False)
+
   data = await state.get_data()
   total_price = data.get("total_price", 250)
   rub_amount = max(1, int(total_price * 90))
@@ -1383,7 +1378,7 @@ async def process_pay_safari_stars(callback: CallbackQuery, state: FSMContext):
   pay_url = ""
   if pref_task:
     try:
-      pay_url = await asyncio.wait_for(asyncio.shield(pref_task), timeout=3.0)
+      pay_url = await asyncio.wait_for(asyncio.shield(pref_task), timeout=5.0)
     except Exception:
       pass
 
@@ -1430,7 +1425,6 @@ async def process_pay_safari_stars(callback: CallbackQuery, state: FSMContext):
       "Счет готов! Нажмите кнопку ниже для оплаты."
   )
   await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
-  await callback.answer()
 
 
 @router.callback_query(F.data == "safaripay_check_success")
