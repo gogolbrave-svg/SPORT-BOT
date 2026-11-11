@@ -1,3 +1,5 @@
+На некоторых девайсах мой бот выдаёт ошибку, когда переходишь к оплате, когда нажимаешь оплата картой или оплата звёздами. И вот эта когда прогрузка идёт 5 секунд, на некоторых девайсах, особенно на андроидах, она выдаёт ошибку. Выдаёт ошибку типа потеря подключения к шлюзу, попробуйте ещё раз, и всё. И она так и не выдаёт ссылку за эти 5 секунд. Просто никак не выдаёт ссылку. Надо с этим пофиксить, продлить на 10 секунд, как будто они исправят ситуацию. Можно попробовать продлить на 10, но как будто давай сделаем так, пусть 5 секунд, но не будет вот этого проверка шлюза, повторить ещё раз. Давай не будет повторить ещё раз, пусть дожидается. Пусть этот шлюз всё-таки загрузит. Пройдёт 5 секунд, допустим, пусть не будет вот этого повторите ещё раз, потому что это замкнутый круг. А пусть будет тогда зависать эта кнопка тогда, ну не зависать, а просто грузить дальше. Понял? И всё-таки прогружаться, но не будет повторить ещё раз, это точно, и ошибки точно не должно быть. Это пиздец какой-то. Пусть они нажимают кнопку, и с нулевой секунды сразу идёт запрос к апишнику платёжки, чтобы выдало ссылку, и всё. Автоматически, чтобы всё работало. Понял?
+
 import asyncio
 import datetime
 import logging
@@ -338,8 +340,7 @@ async def create_safaripay_invoice(amount_rub: float, method: str) -> str:
 
   try:
     async with ClientSession() as session:
-      # Увеличили таймаут до 15 секунд, чтобы шлюз гарантированно успел ответить без обрывов
-      async with session.post(f"{url}?wait=15", json=payload, headers=headers, timeout=15) as resp:
+      async with session.post(f"{url}?wait=20", json=payload, headers=headers, timeout=10) as resp:
         if resp.status in (200, 201):
           data = await resp.json()
           return data.get("link", "")
@@ -1328,7 +1329,7 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   await callback.answer()
 
 
-# === ОПЛАТА КАРТОЙ / СБП (МГНОВЕННЫЙ ЗАПРОС БЕЗ ОГРАНИЧЕНИЙ И ОШИБОК) ===
+# === ОПЛАТА КАРТОЙ / СБП (МГНОВЕННЫЙ ЗАПРОС + АНИМАЦИЯ 5 СЕКУНД) ===
 @router.callback_query(F.data == "pay_sbp")
 async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
   user_id = callback.from_user.id
@@ -1345,25 +1346,26 @@ async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
   total_price = data.get("total_price", 250)
   rub_amount = max(100, int(total_price * 90))
 
-  # Сразу с нулевой секунды выводим экран загрузки и отправляем запрос в API
-  loading_text = (
-      "💳 <b>Генерация защищенной ссылки...</b>\n\n"
-      "Пожалуйста, подождите, шлюз обрабатывает запрос..."
-  )
-  loading_kb = InlineKeyboardMarkup(
-      inline_keyboard=[
-          [InlineKeyboardButton(text="⏳ Загрузка шлюза...", callback_data="noop")],
-          [InlineKeyboardButton(text="⬅️ Назад к выбору", callback_data="go_to_payment")]
-      ]
-  )
-  
-  try:
-    await callback.message.edit_text(loading_text, reply_markup=loading_kb, parse_mode="HTML")
-  except Exception:
-    pass
+  api_task = asyncio.create_task(create_safaripay_invoice(rub_amount, "sbp"))
 
-  # Мгновенный запрос к API без искусственных обрывов по таймеру
-  pay_url = await create_safaripay_invoice(rub_amount, "sbp")
+  for current_sec in range(5, 0, -1):
+    anim_text = (
+        "💳 <b>Генерация защищенной ссылки...</b>\n\n"
+        f"Осталось: <b>{current_sec} сек.</b> (Карта / СБП)"
+    )
+    anim_kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=f"⏳ Загрузка шлюза... ({current_sec}с)", callback_data="noop")],
+            [InlineKeyboardButton(text="⬅️ Назад к выбору", callback_data="go_to_payment")]
+        ]
+    )
+    try:
+      await callback.message.edit_text(anim_text, reply_markup=anim_kb, parse_mode="HTML")
+    except Exception:
+      pass
+    await asyncio.sleep(1)
+
+  pay_url = await api_task
 
   if not pay_url:
     fail_kb = InlineKeyboardMarkup(
@@ -1373,8 +1375,8 @@ async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
         ]
     )
     await callback.message.edit_text(
-        "⚠️ <b>Шлюз временно перегружен</b>\n\n"
-        "Не удалось получить ссылку с первой попытки. Нажмите кнопку ниже, чтобы повторить запрос:",
+        "⚠️ <b>Шлюз не ответил вовремя</b>\n\n"
+        "Нажмите кнопку еще раз для повторной генерации ссылки.",
         reply_markup=fail_kb,
         parse_mode="HTML"
     )
@@ -1407,10 +1409,10 @@ async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == "noop")
 async def process_noop(callback: CallbackQuery):
-  await callback.answer("⏳ Шлюз генерирует ссылку, подождите...", show_alert=False)
+  await callback.answer("⏳ Создаем защищенную ссылку...", show_alert=False)
 
 
-# === ОПЛАТА ЗВЁЗДАМИ (МГНОВЕННЫЙ ЗАПРОС БЕЗ ОГРАНИЧЕНИЙ И ОШИБОК) ===
+# === ОПЛАТА ЗВЁЗДАМИ (МГНОВЕННЫЙ ЗАПРОС + АНИМАЦИЯ 5 СЕКУНД) ===
 @router.callback_query(F.data == "pay_safari_stars")
 async def process_pay_safari_stars(callback: CallbackQuery, state: FSMContext):
   user_id = callback.from_user.id
@@ -1427,37 +1429,31 @@ async def process_pay_safari_stars(callback: CallbackQuery, state: FSMContext):
   total_price = data.get("total_price", 250)
   rub_amount = max(1, int(total_price * 90))
 
-  loading_text = (
-      "⭐ <b>Генерация счета Telegram Stars...</b>\n\n"
-      "Пожалуйста, подождите, шлюз обрабатывает запрос..."
-  )
-  loading_kb = InlineKeyboardMarkup(
-      inline_keyboard=[
-          [InlineKeyboardButton(text="⭐ Загрузка счета...", callback_data="noop")],
-          [InlineKeyboardButton(text="⬅️ Назад к выбору", callback_data="go_to_payment")]
-      ]
-  )
+  api_task = asyncio.create_task(create_safaripay_invoice(rub_amount, "stars"))
 
-  try:
-    await callback.message.edit_text(loading_text, reply_markup=loading_kb, parse_mode="HTML")
-  except Exception:
-    pass
-
-  # Мгновенный запрос к API без искусственных обрывов
-  pay_url = await create_safaripay_invoice(rub_amount, "stars")
-
-  if not pay_url:
-    fail_kb = InlineKeyboardMarkup(
+  for current_sec in range(5, 0, -1):
+    anim_text = (
+        "⭐ <b>Генерация счета Telegram Stars...</b>\n\n"
+        f"Осталось: <b>{current_sec} сек.</b>"
+    )
+    anim_kb = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="🔄 Попробовать еще раз", callback_data="pay_safari_stars")],
+            [InlineKeyboardButton(text=f"⭐ Загрузка... ({current_sec}с)", callback_data="noop")],
             [InlineKeyboardButton(text="⬅️ Назад к выбору", callback_data="go_to_payment")]
         ]
     )
-    await callback.message.edit_text(
-        "⚠️ <b>Шлюз временно перегружен</b>\n\n"
-        "Не удалось получить счет Stars. Нажмите кнопку ниже, чтобы повторить:",
-        reply_markup=fail_kb,
-        parse_mode="HTML"
+    try:
+      await callback.message.edit_text(anim_text, reply_markup=anim_kb, parse_mode="HTML")
+    except Exception:
+      pass
+    await asyncio.sleep(1)
+
+  pay_url = await api_task
+
+  if not pay_url:
+    await callback.answer(
+        "❌ Ошибка генерации счета Stars через SafariPay.",
+        show_alert=True,
     )
     return
 
