@@ -242,7 +242,7 @@ async def delayed_abandoned_cart_reminder(bot: Bot, user_id: int):
     logger.error(f"Ошибка отправки напоминания о дожиме для {user_id}: {e}")
 
 
-# === ФУНКЦИЯ ЖИВОГО ТАЙМЕРА ОПЛАТЫ НА 20 МИНУТ ===
+# === ФУНКЦИЯ ЖИВОГО ТАЙМЕРА ОБРАТНОГО ОТСЧЕТА (КАЖДУЮ СЕКУНДУ) ===
 async def run_payment_timer(bot: Bot, chat_id: int, message_id: int, base_text: str, keyboard_buttons_factory):
   total_seconds = 20 * 60
   task_key = (chat_id, message_id)
@@ -269,10 +269,10 @@ async def run_payment_timer(bot: Bot, chat_id: int, message_id: int, base_text: 
       except Exception:
         pass # Игнорируем ошибки, если текст не изменился или сообщение удалено
       
-      await asyncio.sleep(60)
-      total_seconds -= 60
+      await asyncio.sleep(1)
+      total_seconds -= 1
       
-    # Когда время вышло
+    # Когда время вышло (прошло 20 минут)
     expired_text = (
         "❌ <b>Время на оплату заказа истекло!</b>\n\n"
         "Бронь заказа была отменена. Пожалуйста, оформите заказ заново."
@@ -1236,7 +1236,7 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
   await callback.answer()
 
 
-# === ВЫБОР СПОСОБА ОПЛАТЫ ИЛИ ГАЙД (С ТАЙМЕРОМ НА 20 МИН И ДОЖИМОМ ЧЕРЕЗ 30 МИН) ===
+# === ВЫБОР СПОСОБА ОПЛАТЫ ИЛИ ГАЙД (С ЖИВЫМ ТАЙМЕРОМ НА 20 МИН И ДОЖИМОМ ЧЕРЕЗ 30 МИН) ===
 @router.callback_query(F.data == "go_to_payment")
 async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   user_id = callback.from_user.id
@@ -1315,7 +1315,7 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   initial_text = f"⏳ <b>Успейте оплатить! До окончания бронирования осталось: <u>20:00</u></b>\n\n{base_text}"
   await callback.message.edit_text(initial_text, reply_markup=get_payment_keyboard(), parse_mode="HTML")
   
-  # Запускаем фоновый таймер обновления каждые 60 секунд
+  # Запускаем живой фоновый таймер обновления каждую секунду
   task_key = (chat_id, message_id)
   if task_key in PAYMENT_TIMERS:
     PAYMENT_TIMERS[task_key].cancel()
