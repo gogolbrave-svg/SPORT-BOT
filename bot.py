@@ -16,7 +16,7 @@ from aiogram.types import (
     PreCheckoutQuery,
     SuccessfulPayment,
 )
-from aiohttp import ClientSession, ClientTimeout, web
+from aiohttp import ClientSession, web
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -113,8 +113,8 @@ COUNTRY_CURRENCIES = {
 async def get_exchange_rate(target_currency: str) -> float:
   url = f"https://open.er-api.com/v6/latest/USD"
   try:
-    async with ClientSession(timeout=ClientTimeout(total=5)) as session:
-      async with session.get(url) as response:
+    async with ClientSession() as session:
+      async with session.get(url, timeout=5) as response:
         if response.status == 200:
           data = await response.json()
           rates = data.get("rates", {})
@@ -309,8 +309,8 @@ async def create_cryptobot_invoice(amount_usd: float, description: str) -> str:
   }
 
   try:
-    async with ClientSession(timeout=ClientTimeout(total=5)) as session:
-      async with session.post(url, json=payload, headers=headers) as resp:
+    async with ClientSession() as session:
+      async with session.post(url, json=payload, headers=headers, timeout=5) as resp:
         if resp.status == 200:
           data = await resp.json()
           if data.get("ok"):
@@ -320,10 +320,9 @@ async def create_cryptobot_invoice(amount_usd: float, description: str) -> str:
   return ""
 
 
-# === ФУНКЦИЯ СОЗДАНИЯ ИНВОЙСА SAFARIPAY (С ЗАЩИТОЙ И ПАРАЛЛЕЛЬНОЙ ГЕНЕРАЦИЕЙ) ===
+# === ФУНКЦИЯ СОЗДАНИЯ ИНВОЙСА SAFARIPAY ===
 async def create_safaripay_invoice(amount_rub: float, method: str) -> str:
   if not SAFARIPAY_API_KEY:
-    logger.error("❌ SAFARIPAY_API_KEY не задан в переменных окружения!")
     return ""
 
   url = "https://api.safaripay.pro/v1/invoices"
@@ -338,22 +337,13 @@ async def create_safaripay_invoice(amount_rub: float, method: str) -> str:
   }
 
   try:
-    async with ClientSession(timeout=ClientTimeout(total=5)) as session:
-      async with session.post(f"{url}?wait=20", json=payload, headers=headers) as resp:
+    async with ClientSession() as session:
+      async with session.post(f"{url}?wait=20", json=payload, headers=headers, timeout=10) as resp:
         if resp.status in (200, 201):
           data = await resp.json()
-          link = data.get("link", "")
-          if link:
-            return link
-          else:
-            logger.error(f"SafariPay не вернул ссылку в ответе: {data}")
-        else:
-          resp_text = await resp.text()
-          logger.error(f"SafariPay вернул ошибку {resp.status}: {resp_text}")
-  except asyncio.TimeoutError:
-    logger.error("❌ Превышено время ожидания при запросе к SafariPay API.")
+          return data.get("link", "")
   except Exception as e:
-    logger.error(f"❌ Ошибка отправки запроса в SafariPay ({method}): {e}")
+    logger.error(f"Ошибка создания SafariPay инвойса ({method}): {e}")
   return ""
 
 
@@ -1321,7 +1311,7 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   await callback.answer()
 
 
-# === ОПЛАТА КАРТОЙ / СБП (ИСПРАВЛЕНО: ПАРАЛЛЕЛЬНЫЙ ЗАПРОС И ТАЙМЕР 5 СЕКУНД) ===
+# === ОПЛАТА КАРТОЙ / СБП (МГНОВЕННЫЙ ЗАПРОС + АНИМАЦИЯ 5 СЕКУНД) ===
 @router.callback_query(F.data == "pay_sbp")
 async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
   user_id = callback.from_user.id
@@ -1360,10 +1350,7 @@ async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
     await asyncio.sleep(1)
 
   # 3. Забираем готовую ссылку
-  try:
-    pay_url = await asyncio.wait_for(api_task, timeout=6.0)
-  except Exception:
-    pay_url = ""
+  pay_url = await api_task
 
   if not pay_url:
     fail_kb = InlineKeyboardMarkup(
@@ -1383,8 +1370,17 @@ async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
           [InlineKeyboardButton(text="🔗 Оплатить СБП / Картой", url=pay_url)],
-          [InlineKeyboardButton(text="✅ Я оплатил(-а), проверить", callback_data="safaripay_check_success")],
-          [InlineKeyboardButton(text="⬅️ Назад к выбору", callback_data="go_to_payment")],
+          [
+              InlineKeyboardButton(
+                  text="✅ Я оплатил(-а), проверить",
+                  callback_data="safaripay_check_success",
+              )
+          ],
+          [
+              InlineKeyboardButton(
+                  text="⬅️ Назад к выбору", callback_data="go_to_payment"
+              )
+          ],
       ]
   )
   text = (
@@ -1401,7 +1397,7 @@ async def process_noop(callback: CallbackQuery):
   await callback.answer("⏳ Создаем защищенную ссылку...", show_alert=False)
 
 
-# === ОПЛАТА ЗВЕЗДАМИ (ИСПРАВЛЕНО: ПАРАЛЛЕЛЬНЫЙ ЗАПРОС И ТАЙМЕР 5 СЕКУНД) ===
+# === ОПЛАТА ЗВЁЗДАМИ (МГНОВЕННЫЙ ЗАПРОС + АНИМАЦИЯ 5 СЕКУНД) ===
 @router.callback_query(F.data == "pay_safari_stars")
 async def process_pay_safari_stars(callback: CallbackQuery, state: FSMContext):
   user_id = callback.from_user.id
@@ -1439,23 +1435,12 @@ async def process_pay_safari_stars(callback: CallbackQuery, state: FSMContext):
       pass
     await asyncio.sleep(1)
 
-  try:
-    pay_url = await asyncio.wait_for(api_task, timeout=6.0)
-  except Exception:
-    pay_url = ""
+  pay_url = await api_task
 
   if not pay_url:
-    fail_kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="🔄 Попробовать еще раз", callback_data="pay_safari_stars")],
-            [InlineKeyboardButton(text="⬅️ Назад к выбору", callback_data="go_to_payment")]
-        ]
-    )
-    await callback.message.edit_text(
-        "⚠️ <b>Шлюз не ответил вовремя при генерации Stars</b>\n\n"
-        "Пожалуйста, нажмите кнопку еще раз или воспользуйтесь другим методом оплаты.",
-        reply_markup=fail_kb,
-        parse_mode="HTML"
+    await callback.answer(
+        "❌ Ошибка генерации счета Stars через SafariPay.",
+        show_alert=True,
     )
     return
 
