@@ -1093,7 +1093,7 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
       "🤖 <b>CryptoBot</b> — самый легкий и удобный способ!\n"
       "• Покупаете крипту за рубли, тенге, BYN и т.д. прямо через P2P-маркет в самом CryptoBot.\n"
       "• Затем нажимаете в боте оплатить — и средства списываются в один клик без комиссий!\n\n"
-      "🪙 <b>Крипта USDT</b> — перевод по прямым реквизитам."
+      "🪙 <b>Оплата USDT</b> — перевод по прямым реквизитам."
   )
 
   keyboard = InlineKeyboardMarkup(
@@ -1106,7 +1106,7 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
           ],
           [
               InlineKeyboardButton(
-                  text="🪙 Крипта USDT",
+                  text="🪙 Оплата USDT",
                   callback_data="crypto_expert",
               )
           ],
