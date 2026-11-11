@@ -98,7 +98,6 @@ router = Router()
 
 # === СЛОВАРЬ ВАЛЮТ ДЛЯ СТРАН ===
 COUNTRY_CURRENCIES = {
-    "Украина": {"code": "UAH", "symbol": "грн."},
     "Россия": {"code": "RUB", "symbol": "руб."},
     "Беларусь": {"code": "BYN", "symbol": "byn"},
     "Казахстан": {"code": "KZT", "symbol": "тңг."},
@@ -106,9 +105,7 @@ COUNTRY_CURRENCIES = {
     "Узбекистан": {"code": "UZS", "symbol": "сум"},
     "Кыргызстан": {"code": "KGS", "symbol": "сом"},
     "Таджикистан": {"code": "TJS", "symbol": "сом."},
-    "Грузия": {"code": "GEL", "symbol": "lari"},
     "Армения": {"code": "AMD", "symbol": "драм"},
-    "Азербайджан": {"code": "AZN", "symbol": "манат"},
 }
 
 
@@ -129,7 +126,6 @@ async def get_exchange_rate(target_currency: str) -> float:
     )
 
   fallback_rates = {
-      "UAH": 41.5,
       "RUB": 95.0,
       "BYN": 3.3,
       "KZT": 480.0,
@@ -137,9 +133,7 @@ async def get_exchange_rate(target_currency: str) -> float:
       "UZS": 12600.0,
       "KGS": 89.0,
       "TJS": 10.9,
-      "GEL": 2.7,
       "AMD": 390.0,
-      "AZN": 1.7,
   }
   return fallback_rates.get(target_currency, 1.0)
 
@@ -341,11 +335,9 @@ async def create_safaripay_invoice(amount_rub: float, method: str) -> str:
       "method": method
   }
 
-  # Делаем до 3 попыток запроса, если апишник тупит или перегружен
   for attempt in range(1, 4):
     try:
       async with ClientSession() as session:
-        # Увеличиваем ожидание ответа до 15 секунд, чтобы избежать таймаутов
         async with session.post(f"{url}?wait=20", json=payload, headers=headers, timeout=15) as resp:
           if resp.status in (200, 201):
             data = await resp.json()
@@ -357,7 +349,6 @@ async def create_safaripay_invoice(amount_rub: float, method: str) -> str:
     except Exception as e:
       logger.error(f"Попытка {attempt}/3 ошибки запроса SafariPay ({method}): {e}")
     
-    # Небольшая задержка перед повторной попыткой (1 сек, затем 2 сек)
     if attempt < 3:
       await asyncio.sleep(attempt)
 
@@ -956,27 +947,20 @@ async def process_addon(callback: CallbackQuery, state: FSMContext):
   await state.update_data(addon_type=addon_type, addon_price=addon_price)
   await state.set_state(OrderForm.country)
 
+  # ТОЛЬКО ОСТАВЛЕННЫЕ 8 СТРАН В ЗАКАЗЕ
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="🇺🇦 Украина", callback_data="country_Ukraine"
-              ),
-              InlineKeyboardButton(
                   text="🇷🇺 Россия", callback_data="country_Russia"
               ),
-          ],
-          [
               InlineKeyboardButton(
                   text="🇧🇾 Беларусь", callback_data="country_Belarus"
               ),
-              InlineKeyboardButton(
-                  text="🇰🇿 Казахстан", callback_data="country_Kazakhstan"
-              ),
           ],
           [
               InlineKeyboardButton(
-                  text="🇲🇩 Молдова", callback_data="country_Moldova"
+                  text="🇰🇿 Казахстан", callback_data="country_Kazakhstan"
               ),
               InlineKeyboardButton(
                   text="🇺🇿 Узбекистан", callback_data="country_Uzbekistan"
@@ -984,24 +968,19 @@ async def process_addon(callback: CallbackQuery, state: FSMContext):
           ],
           [
               InlineKeyboardButton(
-                  text="🇰🇬 Кыргызстан", callback_data="country_Kyrgyzstan"
+                  text="🇹🇯 Таджикистан", callback_data="country_Tajikistan"
               ),
               InlineKeyboardButton(
-                  text="🇹🇯 Таджикистан", callback_data="country_Tajikistan"
+                  text="🇰🇬 Кыргызстан", callback_data="country_Kyrgyzstan"
               ),
           ],
           [
-              InlineKeyboardButton(
-                  text="🇬🇪 Грузия", callback_data="country_Georgia"
-              ),
               InlineKeyboardButton(
                   text="🇦🇲 Армения", callback_data="country_Armenia"
               ),
-          ],
-          [
               InlineKeyboardButton(
-                  text="🇦🇿 Азербайджан", callback_data="country_Azerbaijan"
-              )
+                  text="🇲🇩 Молдова", callback_data="country_Moldova"
+              ),
           ],
       ]
   )
@@ -1017,7 +996,6 @@ async def process_addon(callback: CallbackQuery, state: FSMContext):
 async def process_country(callback: CallbackQuery, state: FSMContext):
   c_code = callback.data.split("_")[1]
   names = {
-      "Ukraine": "Украина",
       "Russia": "Россия",
       "Belarus": "Беларусь",
       "Kazakhstan": "Казахстан",
@@ -1025,9 +1003,7 @@ async def process_country(callback: CallbackQuery, state: FSMContext):
       "Uzbekistan": "Узбекистан",
       "Kyrgyzstan": "Кыргызстан",
       "Tajikistan": "Таджикистан",
-      "Georgia": "Грузия",
       "Armenia": "Армения",
-      "Azerbaijan": "Азербайджан",
   }
   selected = names.get(c_code, c_code)
 
@@ -1265,7 +1241,6 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
   await callback.answer()
 
 
-# === ПЕРЕХОД К ВЫБОРУ ОПЛАТЫ С МОМЕНТАЛЬНЫМ ПАРАЛЛЕЛЬНЫМ ПРЕФЕТЧЕМ (И КАРТА, И ЗВЕЗДЫ) ===
 @router.callback_query(F.data == "go_to_payment")
 async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   user_id = callback.from_user.id
@@ -1278,7 +1253,6 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
 
   data = await state.get_data()
   total_price = data.get("total_price", 250)
-  country = data.get("country", "")
   curr_symbol = data.get("curr_symbol", "USD")
   curr_code = data.get("curr_code", "USD")
   rate = await get_exchange_rate(curr_code)
@@ -1288,7 +1262,6 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   rub_amount = max(100, int(total_price * 90))
   stars_amount = max(1, rub_amount)
 
-  # 🔥 ЗАПУСК ФОНОВОГО ПРЕФЕТЧА ОБОИХ ИНВОЙСОВ В SAFARIPAY СРАЗУ
   SAFARIPAY_PREFETCH_CACHE[user_id] = {
       "sbp": asyncio.create_task(create_safaripay_invoice(rub_amount, "sbp")),
       "stars": asyncio.create_task(create_safaripay_invoice(rub_amount, "stars"))
@@ -1302,41 +1275,32 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   )
 
   def get_payment_keyboard(timer_active=False, time_left="20:00"):
-    kb_buttons = []
-    
-    if country == "Украина":
-      kb_buttons.append([
-          InlineKeyboardButton(
-              text=f"⭐ Telegram Stars ({stars_amount} ⭐)",
-              callback_data="pay_safari_stars",
-          )
-      ])
-    else:
-      kb_buttons.append([
-          InlineKeyboardButton(
-              text=f"💳 Карта / СБП (~{rub_amount} ₽)",
-              callback_data="pay_sbp",
-          )
-      ])
-      kb_buttons.append([
-          InlineKeyboardButton(
-              text=f"⭐ Telegram Stars ({stars_amount} ⭐)",
-              callback_data="pay_safari_stars",
-          )
-      ])
-
-    kb_buttons.append([
-        InlineKeyboardButton(
-            text="🤖 CryptoBot",
-            callback_data="pay_cryptobot",
-        )
-    ])
-    kb_buttons.append([
-        InlineKeyboardButton(
-            text="🪙 Крипта USDT",
-            callback_data="crypto_expert",
-        )
-    ])
+    kb_buttons = [
+        [
+            InlineKeyboardButton(
+                text=f"💳 Карта / СБП (~{rub_amount} ₽)",
+                callback_data="pay_sbp",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=f"⭐ Telegram Stars ({stars_amount} ⭐)",
+                callback_data="pay_safari_stars",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text="🤖 CryptoBot",
+                callback_data="pay_cryptobot",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text="🪙 Крипта USDT",
+                callback_data="crypto_expert",
+            )
+        ]
+    ]
     return InlineKeyboardMarkup(inline_keyboard=kb_buttons)
 
   initial_text = f"⏳ <b>Успейте оплатить! До окончания бронирования осталось: <u>20:00</u></b>\n\n{base_text}"
@@ -1353,7 +1317,6 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   await callback.answer()
 
 
-# === ОПЛАТА КАРТОЙ / СБП (С ЗАЩИТОЙ ОТ ПАДЕНИЙ И БЕЗОПАСНЫМ ФОЛЛБЕКОМ) ===
 @router.callback_query(F.data == "pay_sbp")
 async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
   user_id = callback.from_user.id
@@ -1370,7 +1333,6 @@ async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
   total_price = data.get("total_price", 250)
   rub_amount = max(100, int(total_price * 90))
 
-  # Пытаемся забрать предзагруженную задачу из кэша
   user_cache = SAFARIPAY_PREFETCH_CACHE.get(user_id, {})
   pref_task = user_cache.get("sbp")
   
@@ -1381,13 +1343,11 @@ async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
     except Exception:
       pass
 
-  # Если в кэше не оказалось или шлюз долго думал — делаем синхронную повторную попытку
   if not pay_url:
     pay_url = await create_safaripay_invoice(rub_amount, "sbp")
     
   SAFARIPAY_PREFETCH_CACHE.pop(user_id, None)
 
-  # БЕЗОПАСНЫЙ ФОЛЛБЕК: если шлюз всё же лег, НИКАКИХ критических ошибок. Выводим понятную кнопку повтора.
   if not pay_url:
     fail_kb = InlineKeyboardMarkup(
         inline_keyboard=[
@@ -1434,7 +1394,6 @@ async def process_noop(callback: CallbackQuery):
   await callback.answer("", show_alert=False)
 
 
-# === ОПЛАТА ЗВЁЗДАМИ (С ЗАЩИТОЙ ОТ ПАДЕНИЙ И БЕЗОПАСНЫМ ФОЛЛБЕКОМ) ===
 @router.callback_query(F.data == "pay_safari_stars")
 async def process_pay_safari_stars(callback: CallbackQuery, state: FSMContext):
   user_id = callback.from_user.id
@@ -1551,7 +1510,6 @@ async def process_safaripay_check(callback: CallbackQuery, state: FSMContext):
   await state.clear()
 
 
-# === ОБРАБОТКА ОПЛАТЫ ЧЕРЕЗ CRYPTOBOT ===
 @router.callback_query(F.data == "pay_cryptobot")
 async def process_pay_cryptobot(callback: CallbackQuery, state: FSMContext):
   user_id = callback.from_user.id
@@ -1645,7 +1603,6 @@ async def process_cryptobot_check(callback: CallbackQuery, state: FSMContext):
   await state.clear()
 
 
-# === ВЫБОР СПОСОБА ОПЛАТЫ (BEP-20 / TON / TRC-20 / BTC) ===
 @router.callback_query(F.data == "crypto_expert")
 async def process_crypto_expert(callback: CallbackQuery, state: FSMContext):
   user_id = callback.from_user.id
@@ -1697,7 +1654,6 @@ async def process_crypto_expert(callback: CallbackQuery, state: FSMContext):
   await callback.answer()
 
 
-# === ОПЛАТА TRC-20 ===
 @router.callback_query(F.data == "pay_trc20")
 async def process_pay_trc20(callback: CallbackQuery, state: FSMContext):
   data = await state.get_data()
@@ -1742,7 +1698,6 @@ async def process_pay_trc20(callback: CallbackQuery, state: FSMContext):
   await callback.answer()
 
 
-# === ОПЛАТА BEP-20 ===
 @router.callback_query(F.data == "pay_bep20")
 async def process_pay_bep20(callback: CallbackQuery, state: FSMContext):
   data = await state.get_data()
@@ -1787,7 +1742,6 @@ async def process_pay_bep20(callback: CallbackQuery, state: FSMContext):
   await callback.answer()
 
 
-# === ОПЛАТА TON ===
 @router.callback_query(F.data == "pay_ton")
 async def process_pay_ton(callback: CallbackQuery, state: FSMContext):
   data = await state.get_data()
@@ -1832,7 +1786,6 @@ async def process_pay_ton(callback: CallbackQuery, state: FSMContext):
   await callback.answer()
 
 
-# === ОПЛАТА BITCOIN (BTC) ===
 @router.callback_query(F.data == "pay_btc")
 async def process_pay_btc(callback: CallbackQuery, state: FSMContext):
   data = await state.get_data()
@@ -1877,7 +1830,6 @@ async def process_pay_btc(callback: CallbackQuery, state: FSMContext):
   await callback.answer()
 
 
-# === ЗАПРОС ЧЕКА У ПОЛЬЗОВАТЕЛЯ ===
 @router.callback_query(F.data == "ask_for_receipt")
 async def ask_for_receipt(callback: CallbackQuery, state: FSMContext):
   await state.set_state(OrderForm.receipt)
@@ -1890,7 +1842,6 @@ async def ask_for_receipt(callback: CallbackQuery, state: FSMContext):
   await callback.answer()
 
 
-# === ПОЛУЧЕНИЕ ЧЕКА И СОХРАНЕНИЕ ===
 @router.message(OrderForm.receipt, F.photo)
 async def process_receipt_photo(message: Message, state: FSMContext):
   user = message.from_user
@@ -1973,27 +1924,20 @@ async def process_receipt_invalid(message: Message):
 async def process_start_vacancy(callback: CallbackQuery, state: FSMContext):
   await state.clear()
   await state.set_state(VacancyForm.country)
+  # ТОЛЬКО ОСТАВЛЕННЫЕ 8 СТРАН В ВАКАНСИЯХ
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="🇺🇦 Украина", callback_data="vcountry_Ukraine"
-              ),
-              InlineKeyboardButton(
                   text="🇷🇺 Россия", callback_data="vcountry_Russia"
               ),
-          ],
-          [
               InlineKeyboardButton(
                   text="🇧🇾 Беларусь", callback_data="vcountry_Belarus"
               ),
-              InlineKeyboardButton(
-                  text="🇰🇿 Казахстан", callback_data="vcountry_Kazakhstan"
-              ),
           ],
           [
               InlineKeyboardButton(
-                  text="🇲🇩 Молдова", callback_data="vcountry_Moldova"
+                  text="🇰🇿 Казахстан", callback_data="vcountry_Kazakhstan"
               ),
               InlineKeyboardButton(
                   text="🇺🇿 Узбекистан", callback_data="vcountry_Uzbekistan"
@@ -2001,24 +1945,19 @@ async def process_start_vacancy(callback: CallbackQuery, state: FSMContext):
           ],
           [
               InlineKeyboardButton(
-                  text="🇰🇬 Кыргызстан", callback_data="vcountry_Kyrgyzstan"
+                  text="🇹🇯 Таджикистан", callback_data="vcountry_Tajikistan"
               ),
               InlineKeyboardButton(
-                  text="🇹🇯 Таджикистан", callback_data="vcountry_Tajikistan"
+                  text="🇰🇬 Кыргызстан", callback_data="vcountry_Kyrgyzstan"
               ),
           ],
           [
-              InlineKeyboardButton(
-                  text="🇬🇪 Грузия", callback_data="vcountry_Georgia"
-              ),
               InlineKeyboardButton(
                   text="🇦🇲 Армения", callback_data="vcountry_Armenia"
               ),
-          ],
-          [
               InlineKeyboardButton(
-                  text="🇦🇿 Азербайджан", callback_data="vcountry_Azerbaijan"
-              )
+                  text="🇲🇩 Молдова", callback_data="vcountry_Moldova"
+              ),
           ],
           [InlineKeyboardButton(text="⬅️ Отмена", callback_data="back_home")],
       ]
@@ -2036,7 +1975,6 @@ async def process_start_vacancy(callback: CallbackQuery, state: FSMContext):
 async def process_vacancy_country(callback: CallbackQuery, state: FSMContext):
   c_code = callback.data.split("_")[1]
   names = {
-      "Ukraine": "Украина",
       "Russia": "Россия",
       "Belarus": "Беларусь",
       "Kazakhstan": "Казахстан",
@@ -2044,9 +1982,7 @@ async def process_vacancy_country(callback: CallbackQuery, state: FSMContext):
       "Uzbekistan": "Узбекистан",
       "Kyrgyzstan": "Кыргызстан",
       "Tajikistan": "Таджикистан",
-      "Georgia": "Грузия",
       "Armenia": "Армения",
-      "Azerbaijan": "Азербайджан",
   }
   selected = names.get(c_code, c_code)
   curr_info = COUNTRY_CURRENCIES.get(
