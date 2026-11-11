@@ -1089,36 +1089,34 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
       "💳 <b>ОПЛАТА ЗАКАЗА</b>\n\n"
       f"• <b>Сумма к оплате:</b> {total_price}$ <i>(≈ {local_str}"
       f" {curr_symbol})</i>\n\n"
-      "💎 <b>Выберите способ оплаты:</b>\n\n"
-      "🤖 <b>CryptoBot</b> — самый легкий и удобный способ!\n"
-      "• Покупаете крипту за рубли, тенге, BYN и т.д. прямо через P2P-маркет в самом CryptoBot.\n"
-      "• Затем нажимаете в боте оплатить — и средства списываются в один клик без комиссий!\n\n"
-      "🪙 <b>Оплата USDT</b> — перевод по прямым реквизитам."
+      "⚠️ Выберите удобный способ оплаты ниже 👇\n"
   )
 
-  keyboard = InlineKeyboardMarkup(
-      inline_keyboard=[
-          [
-              InlineKeyboardButton(
-                  text="🤖 CryptoBot (Легко и удобно)",
-                  callback_data="pay_cryptobot",
-              )
-          ],
-          [
-              InlineKeyboardButton(
-                  text="🪙 Оплата USDT",
-                  callback_data="crypto_expert",
-              )
-          ],
-          [
-              InlineKeyboardButton(
-                  text="⬅️ Назад", callback_data="start_order"
-              )
-          ]
-      ]
-  )
+  def get_payment_keyboard():
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🤖 CryptoBot (Легкая автооплата)",
+                    callback_data="pay_cryptobot",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🪙 Оплата USDT",
+                    callback_data="crypto_expert",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="⬅️ Назад", callback_data="start_order"
+                )
+            ],
+        ]
+    )
 
-  await callback.message.edit_text(base_text, reply_markup=keyboard, parse_mode="HTML")
+  initial_text = f"⏳ <b>Успейте оплатить! До окончания бронирования осталось: <u>20:00</u></b>\n\n{base_text}"
+  await callback.message.edit_text(initial_text, reply_markup=get_payment_keyboard(), parse_mode="HTML")
   await callback.answer()
 
 
@@ -1157,9 +1155,13 @@ async def process_pay_cryptobot(callback: CallbackQuery, state: FSMContext):
       ]
   )
   text = (
-      "🤖 <b>Оплата через CryptoBot</b>\n\n"
-      f"Сумма: <b>{total_price} USDT</b> (Без комиссий)\n\n"
-      "Нажмите кнопку ниже для перехода в защищенный платежный шлюз CryptoBot. После оплаты нажмите кнопку «Я оплатил(-а), проверить»."
+      "🤖 <b>Оплата через CryptoBot (Самый легкий и удобный способ!)</b>\n\n"
+      f"Сумма к оплате: <b>{total_price} USDT</b>\n\n"
+      "💡 <b>Как легко оплатить через CryptoBot:</b>\n"
+      "1️⃣ Нажмите кнопку <b>«Оплатить через CryptoBot»</b> ниже.\n"
+      "2️⃣ Если у вас нет USDT на балансе, вы можете купить их прямо в CryptoBot за пару кликов через встроенный <b>P2P-маркет</b> (с любой банковской карты или СБП).\n"
+      "3️⃣ Подтвердите оплату внутри CryptoBot, после чего средства мгновенно спишутся, а заказ активируется!\n\n"
+      "После завершения платежа нажмите кнопку <b>«Я оплатил(-а), проверить»</b> 👇"
   )
   await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
   await callback.answer()
@@ -1215,8 +1217,8 @@ async def process_crypto_expert(callback: CallbackQuery, state: FSMContext):
   ABANDONED_CHECKOUTS.pop(user_id, None)
 
   text = (
-      "🪙 <b>ВЫБОР СЕТИ ДЛЯ ОПЛАТЫ USDT</b>\n\n"
-      "Пожалуйста, выберите сеть для перевода:"
+      "💳 <b>ВЫБОР СЕТИ USDT / КРИПТОВАЛЮТЫ</b>\n\n"
+      "Пожалуйста, выберите криптовалюту или сеть для перевода:"
   )
 
   keyboard = InlineKeyboardMarkup(
