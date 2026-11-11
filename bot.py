@@ -324,7 +324,7 @@ async def create_cryptobot_invoice(amount_usd: float, description: str) -> str:
   return ""
 
 
-# === ФУНКЦИЯ СОЗДАНИЯ ИНВОЙСА SAFARIPAY (МОМЕНТАЛЬНЫЙ СТАРТ С wait=3) ===
+# === ФУНКЦИЯ СОЗДАНИЯ ИНВОЙСА SAFARIPAY ===
 async def create_safaripay_invoice(amount_rub: float, method: str) -> str:
   """Создает инвойс через Safari Pay API и возвращает публичную ссылку на оплату."""
   if not SAFARIPAY_API_KEY:
@@ -343,8 +343,7 @@ async def create_safaripay_invoice(amount_rub: float, method: str) -> str:
 
   try:
     async with ClientSession() as session:
-      # Ставим wait=3 для максимально быстрого ответа шлюза
-      async with session.post(f"{url}?wait=3", json=payload, headers=headers, timeout=5) as resp:
+      async with session.post(f"{url}?wait=5", json=payload, headers=headers, timeout=10) as resp:
         if resp.status in (200, 201):
           data = await resp.json()
           return data.get("link", "")
@@ -1317,7 +1316,7 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   await callback.answer()
 
 
-# === ОПЛАТА КАРТОЙ / СБП (МОМЕНТАЛЬНЫЙ ЗАПРОС + 5 СЕКУНД АНИМАЦИИ) ===
+# === ОПЛАТА КАРТОЙ / СБП (ЗАПУСК С НУЛЕВОЙ СЕКУНДЫ, ПАРАЛЛЕЛЬНО СЧЕТЧИК 5 СЕКУНД) ===
 @router.callback_query(F.data == "pay_sbp")
 async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
   user_id = callback.from_user.id
@@ -1334,10 +1333,10 @@ async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
   total_price = data.get("total_price", 250)
   rub_amount = max(100, int(total_price * 90))
 
-  # 1. Запрос на генерацию ссылки улетает СРАЗУ В САМОМ НАЧАЛЕ
+  # 1. Запрос в SafariPay улетает СРАЗУ с 0-й секунды в фоне
   api_task = asyncio.create_task(create_safaripay_invoice(rub_amount, "sbp"))
 
-  # 2. Короткая и плавная анимация ровно на 5 секунд
+  # 2. Счетчик от 5 до 1 секунд параллельно прогрузке шлюза
   for current_sec in range(5, 0, -1):
     anim_text = (
         "💳 <b>Генерация защищенной ссылки...</b>\n\n"
@@ -1355,7 +1354,7 @@ async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
       pass
     await asyncio.sleep(1)
 
-  # 3. К концу 5 секунд ссылка уже полностью готова
+  # 3. Забираем готовую ссылку (к этому моменту запрос уже выполнился)
   pay_url = await api_task
 
   if not pay_url:
@@ -1394,7 +1393,7 @@ async def process_noop(callback: CallbackQuery):
   await callback.answer("⏳ Создаем защищенную ссылку...", show_alert=False)
 
 
-# === ОПЛАТА ЗВЕЗДАМИ (МОМЕНТАЛЬНЫЙ ЗАПРОС + 5 СЕКУНД АНИМАЦИИ) ===
+# === ОПЛАТА ЗВЕЗДАМИ (ЗАПУСК С НУЛЕВОЙ СЕКУНДЫ, ПАРАЛЛЕЛЬНО СЧЕТЧИК 5 СЕКУНД) ===
 @router.callback_query(F.data == "pay_safari_stars")
 async def process_pay_safari_stars(callback: CallbackQuery, state: FSMContext):
   user_id = callback.from_user.id
@@ -1411,10 +1410,10 @@ async def process_pay_safari_stars(callback: CallbackQuery, state: FSMContext):
   total_price = data.get("total_price", 250)
   rub_amount = max(1, int(total_price * 90))
 
-  # 1. Запрос улетает мгновенно
+  # 1. Запрос улетает сразу с 0-й секунды в фоне
   api_task = asyncio.create_task(create_safaripay_invoice(rub_amount, "stars"))
 
-  # 2. Анимация на 5 секунд
+  # 2. Счетчик от 5 до 1 секунд
   for current_sec in range(5, 0, -1):
     anim_text = (
         "⭐ <b>Генерация счета Telegram Stars...</b>\n\n"
