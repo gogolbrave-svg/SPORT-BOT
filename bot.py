@@ -11,10 +11,7 @@ from aiogram.types import (
     CallbackQuery,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
-    LabeledPrice,
     Message,
-    PreCheckoutQuery,
-    SuccessfulPayment,
 )
 from aiohttp import ClientSession, web
 from dotenv import load_dotenv
@@ -59,16 +56,6 @@ class VacancyForm(StatesGroup):
   sports_exp = State()
   experience = State()
   photo = State()
-  receipt = State()
-
-
-class AdForm(StatesGroup):
-  platform = State()
-  duration = State()
-  niche = State()
-  link = State()
-  creative = State()
-  network = State()
   receipt = State()
 
 
