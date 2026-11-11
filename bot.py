@@ -1236,7 +1236,7 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
   await callback.answer()
 
 
-# === ВЫБОР СПОСОБА ОПЛАТЫ ИЛИ ГАЙД (С ЖИВЫМ ТАЙМЕРОМ НА 20 МИН И ДОЖИМОМ ЧЕРЕЗ 30 МИН) ===
+# === ВЫБОР СПОСОБА ОПЛАТЫ (С ЖИВЫМ ТАЙМЕРОМ НА 20 МИН И ДОЖИМОМ ЧЕРЕЗ 30 МИН) ===
 @router.callback_query(F.data == "go_to_payment")
 async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   user_id = callback.from_user.id
@@ -1302,12 +1302,6 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
         InlineKeyboardButton(
             text="✅ Я разбираюсь в криптовалюте",
             callback_data="crypto_expert",
-        )
-    ])
-    kb_buttons.append([
-        InlineKeyboardButton(
-            text="❓ Не разбираюсь (Гайд по оплате)",
-            callback_data="crypto_guide",
         )
     ])
     return InlineKeyboardMarkup(inline_keyboard=kb_buttons)
@@ -1619,48 +1613,6 @@ async def process_cryptobot_check(callback: CallbackQuery, state: FSMContext):
   )
   await callback.message.edit_text(final_text, reply_markup=keyboard, parse_mode="HTML")
   await state.clear()
-
-
-# === МИНИ-ГАЙД ДЛЯ НОВИЧКОВ ===
-@router.callback_query(F.data == "crypto_guide")
-async def process_crypto_guide(callback: CallbackQuery):
-  text = (
-      "📖 <b>МИНИ-ГАЙД ПО ОПЛАТЕ КРИПТОВАЛЮТОЙ</b>\n\n"
-      "Даже если вы никогда не пользовались криптовалютой, оплатить заказ очень"
-      " просто с любой банковской карты или счета любой страны:\n\n"
-      "1. Перейдите на надежный мониторинг обменников:"
-      " <b>https://exchangesumo.com</b>\n"
-      "2. В левой колонке («Отдаете») выберите вашу валюту и банк (например,"
-      " <i>Сбербанк RUB, Тинькофф, Казкоммерцбанк, Visa/Mastercard UAH</i> и"
-      " т.д.).\n"
-      "3. В правой колонке («Получаете») выберите <b>Tether TRC20, BEP20, TON или Bitcoin (BTC)</b>.\n"
-      "4. В появившемся списке выберите подходящий обменник, у которого"
-      " минимальный лимит подходит под сумму вашего заказа.\n"
-      "5. Нажмите на выбранный обменник, заполните простую форму на их сайте:"
-      " укажите сумму и вставьте реквизиты нашего кошелька (которые мы выдадим"
-      " далее), а также свои данные для списания рублей/гривен/тенге.\n"
-      "6. Совершите перевод по инструкции обменника — и средства поступят к"
-      " нам в виде криптовалюты!\n\n"
-      "Как будете готовы, нажмите кнопку ниже, чтобы получить реквизиты:"
-  )
-
-  keyboard = InlineKeyboardMarkup(
-      inline_keyboard=[
-          [
-              InlineKeyboardButton(
-                  text="🟢 Перейти к выбору способа оплаты", callback_data="crypto_expert"
-              )
-          ],
-          [
-              InlineKeyboardButton(
-                  text="⬅️ Назад к оплате", callback_data="go_to_payment"
-              )
-          ],
-      ]
-  )
-
-  await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
-  await callback.answer()
 
 
 # === ВЫБОР СПОСОБА ОПЛАТЫ (BEP-20 / TON / TRC-20 / BTC) ===
