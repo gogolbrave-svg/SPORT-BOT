@@ -1115,8 +1115,6 @@ async def process_photo(message: Message, state: FSMContext):
 
 @router.message(OrderForm.photos, ~F.photo)
 async def process_photo_invalid(message: Message, state: FSMContext):
-  # Исправлено: теперь бот не зависает, если пользователь отправляет текст вместо фото на 8-м шаге,
-  # а дает подсказку и позволяет нажать кнопку «Готово».
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
           [
@@ -1274,7 +1272,6 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
       "💳 <b>ОПЛАТА ЗАКАЗА</b>\n\n"
       f"• <b>Сумма к оплате:</b> {total_price}$ <i>(≈ {local_str}"
       f" {curr_symbol})</i>\n\n"
-      "🔥 <b>Самый выгодный и быстрый способ:</b> Авто-оплата через CryptoBot без комиссии и лишних переплат!\n\n"
       "⚠️ Выберите удобный способ оплаты ниже 👇"
   )
 
@@ -1284,33 +1281,33 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
     if country == "Украина":
       kb_buttons.append([
           InlineKeyboardButton(
-              text=f"⭐ Оплатить через Safari Pay звёздами ({stars_amount} ⭐)",
+              text=f"⭐ Telegram Stars ({stars_amount} ⭐)",
               callback_data="pay_safari_stars",
           )
       ])
     else:
       kb_buttons.append([
           InlineKeyboardButton(
-              text=f"💳 Оплатить картой / СБП (~{rub_amount} ₽)",
+              text=f"💳 Карта / СБП (~{rub_amount} ₽)",
               callback_data="pay_sbp",
           )
       ])
       kb_buttons.append([
           InlineKeyboardButton(
-              text=f"⭐ Оплатить через Safari Pay звёздами ({stars_amount} ⭐)",
+              text=f"⭐ Telegram Stars ({stars_amount} ⭐)",
               callback_data="pay_safari_stars",
           )
       ])
 
     kb_buttons.append([
         InlineKeyboardButton(
-            text="🤖 Авто-оплата через CryptoBot (Выгодно 🔥 0%)",
+            text="🤖 CryptoBot",
             callback_data="pay_cryptobot",
         )
     ])
     kb_buttons.append([
         InlineKeyboardButton(
-            text="✅ Я разбираюсь в криптовалюте",
+            text="🪙 Крипта USDT",
             callback_data="crypto_expert",
         )
     ])
@@ -1570,7 +1567,7 @@ async def process_pay_cryptobot(callback: CallbackQuery, state: FSMContext):
       ]
   )
   text = (
-      "🤖 <b>Авто-оплата через CryptoBot (Рекомендуемый способ)</b>\n\n"
+      "🤖 <b>Оплата через CryptoBot</b>\n\n"
       f"Сумма: <b>{total_price} USDT</b> (Без комиссий)\n\n"
       "Нажмите кнопку ниже для перехода на официальный защищенный платежный шлюз CryptoBot. После оплаты нажмите кнопку «Я оплатил(-а), проверить»."
   )
@@ -1635,7 +1632,7 @@ async def process_crypto_expert(callback: CallbackQuery, state: FSMContext):
   ABANDONED_CHECKOUTS.pop(user_id, None)
 
   text = (
-      "💳 <b>ВЫБОР СПОСОБА ОПЛАТЫ</b>\n\n"
+      "💳 <b>ВЫБОР СЕТИ USDT / КРИПТОВАЛЮТЫ</b>\n\n"
       "Пожалуйста, выберите криптовалюту или сеть для перевода:"
   )
 
