@@ -327,7 +327,7 @@ async def create_cryptobot_invoice(amount_usd: float, description: str) -> str:
 
 # === ФУНКЦИЯ СОЗДАНИЯ ИНВОЙСА SAFARIPAY ===
 async def create_safaripay_invoice(amount_rub: float, method: str) -> str:
-  """Создает инвойс через Safari Pay API и возвращает публичную ссылку на оплату."""
+  """Создает инвойс через Safari Pay API и возвращает публичную ссылку на оплату без задержек."""
   if not SAFARIPAY_API_KEY:
     return ""
 
@@ -344,7 +344,8 @@ async def create_safaripay_invoice(amount_rub: float, method: str) -> str:
 
   try:
     async with ClientSession() as session:
-      async with session.post(f"{url}?wait=20", json=payload, headers=headers, timeout=10) as resp:
+      # Убран параметр wait=20, чтобы бот не ждал ответ шлюза долго
+      async with session.post(url, json=payload, headers=headers, timeout=5) as resp:
         if resp.status in (200, 201):
           data = await resp.json()
           return data.get("link", "")
@@ -1327,7 +1328,7 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   await callback.answer()
 
 
-# === ОПЛАТА КАРТОЙ / СБП ЧЕРЕЗ SAFARIPAY (МГНОВЕННАЯ ВЕБ-ССЫЛКА БЕЗ КОСТЫЛЕЙ) ===
+# === ОПЛАТА КАРТОЙ / СБП ЧЕРЕЗ SAFARIPAY (МГНОВЕННЫЙ ОТКЛИК БЕЗ АНИМАЦИЙ) ===
 @router.callback_query(F.data == "pay_sbp")
 async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
   user_id = callback.from_user.id
@@ -1346,9 +1347,12 @@ async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
   rub_amount = max(100, int(total_price * 90))
 
   pay_url = await create_safaripay_invoice(rub_amount, "sbp")
+  if not pay_url and SAFARIPAY_MERCHANT_ID:
+    pay_url = f"https://pay.safari.pro/pay?merchant={SAFARIPAY_MERCHANT_ID}&amount={rub_amount}&method=sbp"
+
   if not pay_url:
     await callback.answer(
-        "❌ Ошибка генерации ссылки через SafariPay. Проверьте ключи API!",
+        "❌ Ошибка генерации ссылки. Проверьте SAFARIPAY_API_KEY и MERCHANT_ID в .env!",
         show_alert=True,
     )
     return
@@ -1372,7 +1376,7 @@ async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
   text = (
       "💳 <b>Оплата картой / СБП (Safari Pay)</b>\n\n"
       f"Сумма: <b>{rub_amount} ₽</b>\n\n"
-      "Нажмите кнопку ниже для перехода на страницу оплаты. Шлюз откроет защищенную страницу с прогревом, после чего вы сможете завершить платеж."
+      "Нажмите кнопку ниже для перехода на страницу оплаты. После успешного платежа нажмите кнопку проверки."
   )
   await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
   await callback.answer()
@@ -1396,9 +1400,12 @@ async def process_pay_safari_stars(callback: CallbackQuery, state: FSMContext):
   rub_amount = max(1, int(total_price * 90))
 
   pay_url = await create_safaripay_invoice(rub_amount, "stars")
+  if not pay_url and SAFARIPAY_MERCHANT_ID:
+    pay_url = f"https://pay.safari.pro/pay?merchant={SAFARIPAY_MERCHANT_ID}&amount={rub_amount}&method=stars"
+
   if not pay_url:
     await callback.answer(
-        "❌ Ошибка генерации счета Stars через SafariPay. Проверьте ключи API!",
+        "❌ Ошибка генерации счета Stars через SafariPay.",
         show_alert=True,
     )
     return
