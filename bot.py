@@ -344,13 +344,45 @@ async def create_safaripay_invoice(amount_rub: float, method: str) -> str:
 
   try:
     async with ClientSession() as session:
-      async with session.post(f"{url}?wait=20", json=payload, headers=headers, timeout=10) as resp:
+      async with session.post(f"{url}?wait=20", json=payload, headers=headers, timeout=12) as resp:
         if resp.status in (200, 201):
           data = await resp.json()
           return data.get("link", "")
   except Exception as e:
     logger.error(f"Ошибка создания SafariPay инвойса ({method}): {e}")
   return ""
+
+
+# === ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ АНИМАЦИИ ДЛИЛЬНОСТИ ГЕНЕРАЦИИ (10-9-8...) ===
+async def generate_invoice_with_animation(callback: CallbackQuery, rub_amount: int, method: str, title: str):
+  # Запускаем фоновый запрос к API
+  invoice_task = asyncio.create_task(create_safaripay_invoice(rub_amount, method))
+  
+  # Адаптивный таймер на 10 секунд (пока шлюз думает)
+  for i in range(10, 0, -1):
+    if invoice_task.done():
+      break
+    
+    anim_text = (
+        f"⏳ <b>Генерация платежной ссылки ({title})...</b>\n\n"
+        f"Шлюз обрабатывает запрос. Пожалуйста, подождите: <b>{i} сек.</b>\n"
+        "<i>Шлюз долго прогружает, ожидаем ответ сервера...</i>"
+    )
+    anim_kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=f"⏳ Загрузка шлюза... ({i})", callback_data="noop")],
+            [InlineKeyboardButton(text="⬅️ Назад к выбору", callback_data="go_to_payment")]
+        ]
+    )
+    try:
+      await callback.message.edit_text(anim_text, reply_markup=anim_kb, parse_mode="HTML")
+    except Exception:
+      pass
+    await asyncio.sleep(1)
+
+  # Возвращаем результат выполнения запроса
+  pay_url = await invoice_task
+  return pay_url
 
 
 # === ФУНКЦИЯ ДЛЯ ГЕНЕРАЦИИ РЕПУТАЦИИ (РАСТЕТ ЕЖЕДНЕВНО) ===
@@ -1327,7 +1359,7 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   await callback.answer()
 
 
-# === ОПЛАТА КАРТОЙ / СБП ЧЕРЕЗ SAFARIPAY (С АНИМАЦИЕЙ 5 4 3 2 1 И ЗАЩИТОЙ ОТ БАГОВ) ===
+# === ОПЛАТА КАРТОЙ / СБП ЧЕРЕЗ SAFARIPAY (С ИСПРАВЛЕННЫМ ОЖИДАНИЕМ) ===
 @router.callback_query(F.data == "pay_sbp")
 async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
   user_id = callback.from_user.id
@@ -1341,45 +1373,23 @@ async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
     del PAYMENT_TIMERS[task_key]
   ABANDONED_CHECKOUTS.pop(user_id, None)
 
-  # Анимация загрузки кнопки 5 4 3 2 1
-  for i in range(5, 0, -1):
-    anim_text = (
-        "⏳ <b>Генерация платежной ссылки...</b>\n\n"
-        f"Шлюз обрабатывает запрос. Пожалуйста, подождите: <b>{i} сек.</b>\n"
-        "<i>Кнопка иногда долго прогружает, если долго — просто нажмите её еще раз!</i>"
-    )
-    anim_kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text=f"⏳ Загрузка шлюза... ({i})", callback_data="noop")],
-            [InlineKeyboardButton(text="⬅️ Назад к выбору", callback_data="go_to_payment")]
-        ]
-    )
-    try:
-      await callback.message.edit_text(anim_text, reply_markup=anim_kb, parse_mode="HTML")
-    except Exception:
-      pass
-    await asyncio.sleep(1)
-
   data = await state.get_data()
   total_price = data.get("total_price", 250)
   rub_amount = max(100, int(total_price * 90))
 
-  pay_url = await create_safaripay_invoice(rub_amount, "sbp")
+  # Запускаем честное ожидание ответа от шлюза с анимацией обратного отсчета до 10 секунд
+  pay_url = await generate_invoice_with_animation(callback, rub_amount, "sbp", "Карта / СБП")
+
   if not pay_url:
-    await callback.answer(
-        "❌ Шлюз долго отвечает или произошел сбой. Нажмите кнопку еще раз!",
-        show_alert=True,
-    )
-    # Возвращаем рабочую кнопку для повторного нажатия
     fail_kb = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="🔄 Нажми еще раз (попробовать снова)", callback_data="pay_sbp")],
+            [InlineKeyboardButton(text="🔄 Попробовать снова", callback_data="pay_sbp")],
             [InlineKeyboardButton(text="⬅️ Назад к выбору", callback_data="go_to_payment")]
         ]
     )
     await callback.message.edit_text(
         "⚠️ <b>Шлюз оплаты не ответил вовремя</b>\n\n"
-        "Так как кнопка иногда багует, пожалуйста, нажмите её еще раз — обычно со 2-й попытки всё срабатывает мгновенно!",
+        "Платёжный провайдер долго обрабатывает запрос. Нажмите «Попробовать снова» — со второй попытки инвойс создастся быстрее!",
         reply_markup=fail_kb,
         parse_mode="HTML"
     )
@@ -1415,7 +1425,7 @@ async def process_noop(callback: CallbackQuery):
   await callback.answer("⏳ Идет подготовка защищенного соединения, пожалуйста, подождите пару секунд...", show_alert=False)
 
 
-# === ОПЛАТА ЗВЁЗДАМИ ЧЕРЕЗ SAFARIPAY ===
+# === ОПЛАТА ЗВЁЗДАМИ ЧЕРЕЗ SAFARIPAY (С ИСПРАВЛЕННЫМ ОЖИДАНИЕМ) ===
 @router.callback_query(F.data == "pay_safari_stars")
 async def process_pay_safari_stars(callback: CallbackQuery, state: FSMContext):
   user_id = callback.from_user.id
@@ -1432,11 +1442,21 @@ async def process_pay_safari_stars(callback: CallbackQuery, state: FSMContext):
   total_price = data.get("total_price", 250)
   rub_amount = max(1, int(total_price * 90))
 
-  pay_url = await create_safaripay_invoice(rub_amount, "stars")
+  # Запускаем честное ожидание ответа от шлюза для звезд
+  pay_url = await generate_invoice_with_animation(callback, rub_amount, "stars", "Telegram Stars")
+
   if not pay_url:
-    await callback.answer(
-        "❌ Ошибка генерации счета Stars через SafariPay. Проверьте ключи API!",
-        show_alert=True,
+    fail_kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🔄 Попробовать снова", callback_data="pay_safari_stars")],
+            [InlineKeyboardButton(text="⬅️ Назад к выбору", callback_data="go_to_payment")]
+        ]
+    )
+    await callback.message.edit_text(
+        "⚠️ <b>Шлюз Звёзд не ответил вовремя</b>\n\n"
+        "Провайдер перегружен. Нажмите «Попробовать снова».",
+        reply_markup=fail_kb,
+        parse_mode="HTML"
     )
     return
 
