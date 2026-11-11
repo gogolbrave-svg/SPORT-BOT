@@ -320,7 +320,7 @@ async def create_cryptobot_invoice(amount_usd: float, description: str) -> str:
   return ""
 
 
-# === ФУНКЦИЯ СОЗДАНИЯ ИНВОЙСА SAFARIPAY (С ЗАЩИТОЙ ОТ ЗАВИСАНИЙ И ТАЙМАУТОМ) ===
+# === ФУНКЦИЯ СОЗДАНИЯ ИНВОЙСА SAFARIPAY (С ЗАЩИТОЙ И ПАРАЛЛЕЛЬНОЙ ГЕНЕРАЦИЕЙ) ===
 async def create_safaripay_invoice(amount_rub: float, method: str) -> str:
   if not SAFARIPAY_API_KEY:
     logger.error("❌ SAFARIPAY_API_KEY не задан в переменных окружения!")
@@ -338,9 +338,8 @@ async def create_safaripay_invoice(amount_rub: float, method: str) -> str:
   }
 
   try:
-    # Жесткий таймаут в 5 секунд на уровне клиента, чтобы бот никогда не зависал намертво
     async with ClientSession(timeout=ClientTimeout(total=5)) as session:
-      async with session.post(f"{url}?wait=3", json=payload, headers=headers) as resp:
+      async with session.post(f"{url}?wait=20", json=payload, headers=headers) as resp:
         if resp.status in (200, 201):
           data = await resp.json()
           link = data.get("link", "")
@@ -352,7 +351,7 @@ async def create_safaripay_invoice(amount_rub: float, method: str) -> str:
           resp_text = await resp.text()
           logger.error(f"SafariPay вернул ошибку {resp.status}: {resp_text}")
   except asyncio.TimeoutError:
-    logger.error("❌ Превышено время ожидания (таймаут 5 сек) при запросе к SafariPay API.")
+    logger.error("❌ Превышено время ожидания при запросе к SafariPay API.")
   except Exception as e:
     logger.error(f"❌ Ошибка отправки запроса в SafariPay ({method}): {e}")
   return ""
@@ -1322,7 +1321,7 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   await callback.answer()
 
 
-# === ОПЛАТА КАРТОЙ / СБП (ПАРАЛЛЕЛЬНО ЗАПРОС И АНИМАЦИЯ 5 СЕКУНД С ЗАЩИТОЙ) ===
+# === ОПЛАТА КАРТОЙ / СБП (ИСПРАВЛЕНО: ПАРАЛЛЕЛЬНЫЙ ЗАПРОС И ТАЙМЕР 5 СЕКУНД) ===
 @router.callback_query(F.data == "pay_sbp")
 async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
   user_id = callback.from_user.id
@@ -1339,10 +1338,10 @@ async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
   total_price = data.get("total_price", 250)
   rub_amount = max(100, int(total_price * 90))
 
-  # 1. Запрос в SafariPay улетает СРАЗУ с 0-й секунды в фоне
+  # 1. Запрос улетает СРАЗУ с 0-й секунды в фоне
   api_task = asyncio.create_task(create_safaripay_invoice(rub_amount, "sbp"))
 
-  # 2. Счетчик от 5 до 1 секунд параллельно прогрузке шлюза
+  # 2. Анимация от 5 до 1 секунд
   for current_sec in range(5, 0, -1):
     anim_text = (
         "💳 <b>Генерация защищенной ссылки...</b>\n\n"
@@ -1360,7 +1359,7 @@ async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
       pass
     await asyncio.sleep(1)
 
-  # 3. Забираем готовую ссылку с таймаутом
+  # 3. Забираем готовую ссылку
   try:
     pay_url = await asyncio.wait_for(api_task, timeout=6.0)
   except Exception:
@@ -1374,8 +1373,8 @@ async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
         ]
     )
     await callback.message.edit_text(
-        "⚠️ <b>Шлюз не ответил вовремя или произошла ошибка соединения</b>\n\n"
-        "Пожалуйста, проверьте интернет-соединение или нажмите кнопку еще раз для повторной генерации ссылки.",
+        "⚠️ <b>Шлюз не ответил вовремя</b>\n\n"
+        "Нажмите кнопку еще раз для повторной генерации ссылки.",
         reply_markup=fail_kb,
         parse_mode="HTML"
     )
@@ -1402,7 +1401,7 @@ async def process_noop(callback: CallbackQuery):
   await callback.answer("⏳ Создаем защищенную ссылку...", show_alert=False)
 
 
-# === ОПЛАТА ЗВЕЗДАМИ (ПАРАЛЛЕЛЬНО ЗАПРОС И АНИМАЦИЯ 5 СЕКУНД С ЗАЩИТОЙ) ===
+# === ОПЛАТА ЗВЕЗДАМИ (ИСПРАВЛЕНО: ПАРАЛЛЕЛЬНЫЙ ЗАПРОС И ТАЙМЕР 5 СЕКУНД) ===
 @router.callback_query(F.data == "pay_safari_stars")
 async def process_pay_safari_stars(callback: CallbackQuery, state: FSMContext):
   user_id = callback.from_user.id
@@ -1422,7 +1421,7 @@ async def process_pay_safari_stars(callback: CallbackQuery, state: FSMContext):
   # 1. Запрос улетает сразу с 0-й секунды в фоне
   api_task = asyncio.create_task(create_safaripay_invoice(rub_amount, "stars"))
 
-  # 2. Счетчик от 5 до 1 секунд
+  # 2. Анимация от 5 до 1 секунд
   for current_sec in range(5, 0, -1):
     anim_text = (
         "⭐ <b>Генерация счета Telegram Stars...</b>\n\n"
