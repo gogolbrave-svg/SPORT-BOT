@@ -90,6 +90,9 @@ KNOWN_USERS = {}
 PAYMENT_TIMERS = {}
 ABANDONED_CHECKOUTS = {}
 
+# Двойной кэш префетча для SafariPay (и карта/СБП, и звёзды генерируются параллельно)
+SAFARIPAY_PREFETCH_CACHE = {}
+
 router = Router()
 
 
@@ -718,6 +721,7 @@ async def back_home(callback: CallbackQuery, state: FSMContext):
     PAYMENT_TIMERS[task_key].cancel()
     del PAYMENT_TIMERS[task_key]
   ABANDONED_CHECKOUTS.pop(user_id, None)
+  SAFARIPAY_PREFETCH_CACHE.pop(user_id, None)
 
   await state.clear()
   keyboard = InlineKeyboardMarkup(
@@ -771,6 +775,7 @@ async def process_start_order(callback: CallbackQuery, state: FSMContext):
     PAYMENT_TIMERS[task_key].cancel()
     del PAYMENT_TIMERS[task_key]
   ABANDONED_CHECKOUTS.pop(user_id, None)
+  SAFARIPAY_PREFETCH_CACHE.pop(user_id, None)
 
   await state.set_state(OrderForm.target_count)
   keyboard = InlineKeyboardMarkup(
@@ -1246,6 +1251,7 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
   await callback.answer()
 
 
+# === ПЕРЕХОД К ВЫБОРУ ОПЛАТЫ С МОМЕНТАЛЬНЫМ ПАРАЛЛЕЛЬНЫМ ПРЕФЕТЧЕМ (И КАРТА, И ЗВЕЗДЫ) ===
 @router.callback_query(F.data == "go_to_payment")
 async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   user_id = callback.from_user.id
@@ -1267,6 +1273,12 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   
   rub_amount = max(100, int(total_price * 90))
   stars_amount = max(1, rub_amount)
+
+  # 🔥 МОМЕНТАЛЬНЫЙ ПАРАЛЛЕЛЬНЫЙ ЗАПРОС ОБОИХ МЕТОДОВ (И СБП/Карта, И Звезды) ПРИ НАЖАТИИ КНОПКИ «ОПЛАТИТЬ» В СВОДКЕ
+  SAFARIPAY_PREFETCH_CACHE[user_id] = {
+      "sbp": asyncio.create_task(create_safaripay_invoice(rub_amount, "sbp")),
+      "stars": asyncio.create_task(create_safaripay_invoice(rub_amount, "stars"))
+  }
 
   base_text = (
       "💳 <b>ОПЛАТА ЗАКАЗА</b>\n\n"
@@ -1327,7 +1339,7 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   await callback.answer()
 
 
-# === ОПЛАТА КАРТОЙ / СБП (МГНОВЕННЫЙ ЗАПРОС + АНИМАЦИЯ 5 СЕКУНД) ===
+# === ОПЛАТА КАРТОЙ / СБП (ЗАБИРАЕТ ГОТОВЫЙ ПРЕФЕТЧ ИЗ КЭША) ===
 @router.callback_query(F.data == "pay_sbp")
 async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
   user_id = callback.from_user.id
@@ -1344,26 +1356,17 @@ async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
   total_price = data.get("total_price", 250)
   rub_amount = max(100, int(total_price * 90))
 
-  api_task = asyncio.create_task(create_safaripay_invoice(rub_amount, "sbp"))
-
-  for current_sec in range(5, 0, -1):
-    anim_text = (
-        "💳 <b>Генерация защищенной ссылки...</b>\n\n"
-        f"Осталось: <b>{current_sec} сек.</b> (Карта / СБП)"
-    )
-    anim_kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text=f"⏳ Загрузка шлюза... ({current_sec}с)", callback_data="noop")],
-            [InlineKeyboardButton(text="⬅️ Назад к выбору", callback_data="go_to_payment")]
-        ]
-    )
-    try:
-      await callback.message.edit_text(anim_text, reply_markup=anim_kb, parse_mode="HTML")
-    except Exception:
-      pass
-    await asyncio.sleep(1)
-
-  pay_url = await api_task
+  # Достаем заранее заготовленный запрос карты/СБП
+  user_cache = SAFARIPAY_PREFETCH_CACHE.get(user_id, {})
+  pref_task = user_cache.get("sbp")
+  
+  if pref_task:
+    pay_url = await pref_task
+  else:
+    pay_url = await create_safaripay_invoice(rub_amount, "sbp")
+    
+  # Чистим кэш этого пользователя после использования
+  SAFARIPAY_PREFETCH_CACHE.pop(user_id, None)
 
   if not pay_url:
     fail_kb = InlineKeyboardMarkup(
@@ -1407,10 +1410,10 @@ async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == "noop")
 async def process_noop(callback: CallbackQuery):
-  await callback.answer("⏳ Создаем защищенную ссылку...", show_alert=False)
+  await callback.answer("", show_alert=False)
 
 
-# === ОПЛАТА ЗВЁЗДАМИ (МГНОВЕННЫЙ ЗАПРОС + АНИМАЦИЯ 5 СЕКУНД) ===
+# === ОПЛАТА ЗВЁЗДАМИ (ЗАБИРАЕТ ГОТОВЫЙ ПРЕФЕТЧ ИЗ КЭША) ===
 @router.callback_query(F.data == "pay_safari_stars")
 async def process_pay_safari_stars(callback: CallbackQuery, state: FSMContext):
   user_id = callback.from_user.id
@@ -1427,26 +1430,17 @@ async def process_pay_safari_stars(callback: CallbackQuery, state: FSMContext):
   total_price = data.get("total_price", 250)
   rub_amount = max(1, int(total_price * 90))
 
-  api_task = asyncio.create_task(create_safaripay_invoice(rub_amount, "stars"))
-
-  for current_sec in range(5, 0, -1):
-    anim_text = (
-        "⭐ <b>Генерация счета Telegram Stars...</b>\n\n"
-        f"Осталось: <b>{current_sec} сек.</b>"
-    )
-    anim_kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text=f"⭐ Загрузка... ({current_sec}с)", callback_data="noop")],
-            [InlineKeyboardButton(text="⬅️ Назад к выбору", callback_data="go_to_payment")]
-        ]
-    )
-    try:
-      await callback.message.edit_text(anim_text, reply_markup=anim_kb, parse_mode="HTML")
-    except Exception:
-      pass
-    await asyncio.sleep(1)
-
-  pay_url = await api_task
+  # Достаем заранее заготовленный запрос Telegram Stars
+  user_cache = SAFARIPAY_PREFETCH_CACHE.get(user_id, {})
+  pref_task = user_cache.get("stars")
+  
+  if pref_task:
+    pay_url = await pref_task
+  else:
+    pay_url = await create_safaripay_invoice(rub_amount, "stars")
+    
+  # Чистим кэш этого пользователя после использования
+  SAFARIPAY_PREFETCH_CACHE.pop(user_id, None)
 
   if not pay_url:
     await callback.answer(
