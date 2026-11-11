@@ -1091,9 +1091,9 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
       f" {curr_symbol})</i>\n\n"
       "💎 <b>Выберите способ оплаты:</b>\n\n"
       "🤖 <b>CryptoBot</b> — самый легкий и удобный способ!\n"
-      "• Покупаете крипту за рубли, тенге, BYN и т.д. прямо через P2P-маркет <b>в самом CryptoBot</b> (а не на Binance или других биржах).\n"
-      "• Затем нажимаете кнопку оплатить в боте — и средства списываются в один клик без комиссий!\n\n"
-      "🪙 <b>Ручная оплата</b> — перевод по прямым реквизитам выбранной сети."
+      "• Покупаете крипту за рубли, тенге, BYN и т.д. прямо через P2P-маркет в самом CryptoBot.\n"
+      "• Затем нажимаете в боте оплатить — и средства списываются в один клик без комиссий!\n\n"
+      "🪙 <b>Крипта USDT</b> — перевод по прямым реквизитам."
   )
 
   keyboard = InlineKeyboardMarkup(
@@ -1106,7 +1106,7 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
           ],
           [
               InlineKeyboardButton(
-                  text="🪙 Ручная оплата",
+                  text="🪙 Крипта USDT",
                   callback_data="crypto_expert",
               )
           ],
@@ -1215,7 +1215,7 @@ async def process_crypto_expert(callback: CallbackQuery, state: FSMContext):
   ABANDONED_CHECKOUTS.pop(user_id, None)
 
   text = (
-      "🪙 <b>ВЫБОР СЕТИ ДЛЯ РУЧНОЙ ОПЛАТЫ</b>\n\n"
+      "🪙 <b>ВЫБОР СЕТИ ДЛЯ ОПЛАТЫ USDT</b>\n\n"
       "Пожалуйста, выберите сеть для перевода:"
   )
 
@@ -1223,12 +1223,12 @@ async def process_crypto_expert(callback: CallbackQuery, state: FSMContext):
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="🔴 TRC-20", callback_data="pay_trc20"
+                  text="🔴 USDT (TRC-20)", callback_data="pay_trc20"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🟢 BEP-20", callback_data="pay_bep20"
+                  text="🟢 USDT (BEP-20)", callback_data="pay_bep20"
               )
           ],
           [
@@ -1264,7 +1264,7 @@ async def process_pay_trc20(callback: CallbackQuery, state: FSMContext):
   local_str = f"{local_amount:,}".replace(",", " ")
 
   payment_text = (
-      "💳 <b>РУЧНАЯ ОПЛАТА (TRC-20)</b>\n\n"
+      "💳 <b>ОПЛАТА USDT (TRC-20)</b>\n\n"
       f"• <b>Сумма:</b> {total_price}$ <i>(≈ {local_str} {curr_symbol})</i>\n"
       "• <b>Сеть:</b> TRC-20\n"
       "• <b>Реквизиты для оплаты:</b>\n"
@@ -1308,7 +1308,7 @@ async def process_pay_bep20(callback: CallbackQuery, state: FSMContext):
   local_str = f"{local_amount:,}".replace(",", " ")
 
   payment_text = (
-      "💳 <b>РУЧНАЯ ОПЛАТА (BEP-20)</b>\n\n"
+      "💳 <b>ОПЛАТА USDT (BEP-20)</b>\n\n"
       f"• <b>Сумма:</b> {total_price}$ <i>(≈ {local_str} {curr_symbol})</i>\n"
       "• <b>Сеть:</b> BEP-20\n"
       "• <b>Реквизиты для оплаты:</b>\n"
@@ -1352,7 +1352,7 @@ async def process_pay_ton(callback: CallbackQuery, state: FSMContext):
   local_str = f"{local_amount:,}".replace(",", " ")
 
   payment_text = (
-      "💳 <b>РУЧНАЯ ОПЛАТА (TON)</b>\n\n"
+      "💳 <b>ОПЛАТА TON</b>\n\n"
       f"• <b>Сумма:</b> {total_price}$ <i>(≈ {local_str} {curr_symbol})</i>\n"
       "• <b>Сеть:</b> TON\n"
       "• <b>Реквизиты для оплаты:</b>\n"
@@ -1396,7 +1396,7 @@ async def process_pay_btc(callback: CallbackQuery, state: FSMContext):
   local_str = f"{local_amount:,}".replace(",", " ")
 
   payment_text = (
-      "💳 <b>РУЧНАЯ ОПЛАТА (BITCOIN)</b>\n\n"
+      "💳 <b>ОПЛАТА BITCOIN (BTC)</b>\n\n"
       f"• <b>Сумма:</b> {total_price}$ <i>(≈ {local_str} {curr_symbol})</i>\n"
       "• <b>Сеть:</b> Bitcoin\n"
       "• <b>Реквизиты для оплаты:</b>\n"
@@ -1727,8 +1727,8 @@ async def process_vacancy_pay(callback: CallbackQuery, state: FSMContext):
   text = (
       "💳 <b>ВНЕСЕНИЕ ЗАЛОГА ДЛЯ ТРУДОУСТРОЙСТВА</b>\n\n"
       f"• <b>Сумма к оплате:</b> {deposit_usd}$ <i>(≈ {local_str}"
-      f" {curr_symbol})</i>\n\n"
-      "• <b>Выберите сеть для перевода:</b>"
+      f" {curr_symbol})</i>\n"
+      "• <b>Выберите способ оплаты:</b>"
   )
 
   keyboard = InlineKeyboardMarkup(
