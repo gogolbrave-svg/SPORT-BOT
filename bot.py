@@ -274,8 +274,11 @@ async def create_xrocket_invoice(amount_usd: float, description: str) -> str:
   if not XROCKET_API_KEY:
     return ""
 
-  url = "https://pay.rocketton.io/api/createInvoice"
-  headers = {"Rocket-Pay-Key": XROCKET_API_KEY}
+  url = "https://pay.api.xrocket.exchange/tg-invoices"
+  headers = {
+      "Rocket-Pay-Key": XROCKET_API_KEY,
+      "Content-Type": "application/json"
+  }
   payload = {
       "amount": float(amount_usd),
       "currency": "USDT",
@@ -288,9 +291,16 @@ async def create_xrocket_invoice(amount_usd: float, description: str) -> str:
         async with session.post(url, json=payload, headers=headers, timeout=10) as resp:
           if resp.status in (200, 201):
             data = await resp.json()
-            pay_url = data.get("link") or data.get("data", {}).get("link") or data.get("result", {}).get("link")
+            # Поддерживаем различные варианты ответа API xRocket для ссылки
+            pay_url = (
+                data.get("link") 
+                or data.get("data", {}).get("link") 
+                or data.get("result", {}).get("link")
+                or data.get("data", {}).get("botPayUrl")
+            )
             if pay_url:
               return pay_url
+  
     except Exception as e:
       logger.error(f"Попытка {attempt+1} - Ошибка создания xRocket инвойса: {e}")
       await asyncio.sleep(1)
@@ -1140,7 +1150,7 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   ABANDONED_CHECKOUTS[user_id] = asyncio.create_task(delayed_abandoned_cart_reminder(callback.bot, user_id))
 
   data = await state.get_data()
-  total_price = data.get("total_price", 250)
+  total_price = data.get("total_price", 20)
   curr_symbol = data.get("curr_symbol", "USD")
   curr_code = data.get("curr_code", "USD")
   rate = await get_exchange_rate(curr_code)
