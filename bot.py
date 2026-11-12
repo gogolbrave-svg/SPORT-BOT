@@ -84,6 +84,9 @@ COUNTRY_CURRENCIES = {
     "Кыргызстан": {"code": "KGS", "symbol": "сом"},
     "Таджикистан": {"code": "TJS", "symbol": "сом."},
     "Армения": {"code": "AMD", "symbol": "драм"},
+    "Украина": {"code": "UAH", "symbol": "грн."},
+    "Азербайджан": {"code": "AZN", "symbol": "AZN"},
+    "Грузия": {"code": "GEL", "symbol": "GEL"},
 }
 
 
@@ -112,6 +115,9 @@ async def get_exchange_rate(target_currency: str) -> float:
       "KGS": 89.0,
       "TJS": 10.9,
       "AMD": 390.0,
+      "UAH": 41.5,
+      "AZN": 1.7,
+      "GEL": 2.7,
   }
   return fallback_rates.get(target_currency, 1.0)
 
@@ -886,6 +892,19 @@ async def process_addon(callback: CallbackQuery, state: FSMContext):
                   text="🇲🇩 Молдова", callback_data="country_Moldova"
               ),
           ],
+          [
+              InlineKeyboardButton(
+                  text="🇺🇦 Украина", callback_data="country_Ukraine"
+              ),
+              InlineKeyboardButton(
+                  text="🇦🇿 Азербайджан", callback_data="country_Azerbaijan"
+              ),
+          ],
+          [
+              InlineKeyboardButton(
+                  text="🇬🇪 Грузия", callback_data="country_Georgia"
+              ),
+          ],
       ]
   )
   await callback.message.edit_text(
@@ -908,6 +927,9 @@ async def process_country(callback: CallbackQuery, state: FSMContext):
       "Kyrgyzstan": "Кыргызстан",
       "Tajikistan": "Таджикистан",
       "Armenia": "Армения",
+      "Ukraine": "Украина",
+      "Azerbaijan": "Азербайджан",
+      "Georgia": "Грузия",
   }
   selected = names.get(c_code, c_code)
 
@@ -1703,6 +1725,19 @@ async def process_start_vacancy(callback: CallbackQuery, state: FSMContext):
                   text="🇲🇩 Молдова", callback_data="vcountry_Moldova"
               ),
           ],
+          [
+              InlineKeyboardButton(
+                  text="🇺🇦 Украина", callback_data="vcountry_Ukraine"
+              ),
+              InlineKeyboardButton(
+                  text="🇦🇿 Азербайджан", callback_data="vcountry_Azerbaijan"
+              ),
+          ],
+          [
+              InlineKeyboardButton(
+                  text="🇬🇪 Грузия", callback_data="vcountry_Georgia"
+              ),
+          ],
           [InlineKeyboardButton(text="⬅️ Отмена", callback_data="back_home")],
       ]
   )
@@ -1727,6 +1762,9 @@ async def process_vacancy_country(callback: CallbackQuery, state: FSMContext):
       "Kyrgyzstan": "Кыргызстан",
       "Tajikistan": "Таджикистан",
       "Armenia": "Армения",
+      "Ukraine": "Украина",
+      "Azerbaijan": "Азербайджан",
+      "Georgia": "Грузия",
   }
   selected = names.get(c_code, c_code)
   curr_info = COUNTRY_CURRENCIES.get(
