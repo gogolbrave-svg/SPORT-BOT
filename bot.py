@@ -11,19 +11,14 @@ from aiogram.types import (
     CallbackQuery,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
-    LabeledPrice,
     Message,
-    PreCheckoutQuery,
-    SuccessfulPayment,
 )
 from aiohttp import ClientSession, web
 from dotenv import load_dotenv
 
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-CRYPTO_BOT_TOKEN = os.getenv("CRYPTO_BOT_TOKEN")
-SAFARIPAY_MERCHANT_ID = os.getenv("SAFARIPAY_MERCHANT_ID")
-SAFARIPAY_API_KEY = os.getenv("SAFARIPAY_API_KEY")
+XROCKET_API_KEY = os.getenv("XROCKET_API_KEY")
 
 if not BOT_TOKEN:
   raise ValueError("❌ BOT_TOKEN не найден!")
@@ -69,18 +64,12 @@ class SupportForm(StatesGroup):
 # База данных в памяти для хранения заказов пользователей
 USER_ORDERS = {}
 
-# Временное хранилище для заказов, оплачиваемых звездами
-PENDING_STARS_ORDERS = {}
-
 # Словарь для отслеживания пользователей и времени последней авто-рассылки: {user_id: datetime}
 KNOWN_USERS = {}
 
 # Хранилище задач таймеров и дожима для отмененных/неоплаченных оплат
 PAYMENT_TIMERS = {}
 ABANDONED_CHECKOUTS = {}
-
-# Двойной кэш префетча для SafariPay (и карта/СБП, и звёзды генерируются параллельно)
-SAFARIPAY_PREFETCH_CACHE = {}
 
 router = Router()
 
@@ -280,67 +269,31 @@ async def run_payment_timer(bot: Bot, chat_id: int, message_id: int, base_text: 
     pass
 
 
-# === ФУНКЦИЯ СОЗДАНИЯ ИНВОЙСА CRYPTOBOT ===
-async def create_cryptobot_invoice(amount_usd: float, description: str) -> str:
-  if not CRYPTO_BOT_TOKEN:
+# === ФУНКЦИЯ СОЗДАНИЯ ИНВОЙСА XROCKET ===
+async def create_xrocket_invoice(amount_usd: float, description: str) -> str:
+  if not XROCKET_API_KEY:
     return ""
 
-  url = "https://pay.crypt.bot/api/createInvoice"
-  headers = {"Crypto-Pay-API-Token": CRYPTO_BOT_TOKEN}
+  url = "https://pay.rocketton.io/api/createInvoice"
+  headers = {"Rocket-Pay-Key": XROCKET_API_KEY}
   payload = {
-      "asset": "USDT",
-      "amount": str(amount_usd),
+      "amount": float(amount_usd),
+      "currency": "USDT",
       "description": description,
-      "payload": "order_payment",
   }
 
   for attempt in range(2):
     try:
       async with ClientSession() as session:
         async with session.post(url, json=payload, headers=headers, timeout=10) as resp:
-          if resp.status == 200:
-            data = await resp.json()
-            if data.get("ok"):
-              return data["result"]["pay_url"]
-    except Exception as e:
-      logger.error(f"Попытка {attempt+1} - Ошибка создания CryptoBot инвойса: {e}")
-      await asyncio.sleep(1)
-  return ""
-
-
-# === УСИЛЕННАЯ ФУНКЦИЯ SAFARIPAY С АВТОМАТИЧЕСКИМ ПОВТОРОМ (RETRY) ===
-async def create_safaripay_invoice(amount_rub: float, method: str) -> str:
-  if not SAFARIPAY_API_KEY:
-    return ""
-
-  url = "https://api.safaripay.pro/v1/invoices"
-  headers = {
-      "X-API-Key": SAFARIPAY_API_KEY,
-      "Content-Type": "application/json"
-  }
-  
-  payload = {
-      "amount": float(amount_rub),
-      "method": method
-  }
-
-  for attempt in range(1, 5):
-    try:
-      async with ClientSession() as session:
-        async with session.post(f"{url}?wait=20", json=payload, headers=headers, timeout=12) as resp:
           if resp.status in (200, 201):
             data = await resp.json()
-            link = data.get("link", "")
-            if link:
-              return link
-          else:
-            logger.warning(f"SafariPay вернул статус {resp.status} на попытке {attempt}")
+            pay_url = data.get("link") or data.get("data", {}).get("link") or data.get("result", {}).get("link")
+            if pay_url:
+              return pay_url
     except Exception as e:
-      logger.error(f"Попытка {attempt}/4 ошибки запроса SafariPay ({method}): {e}")
-    
-    if attempt < 4:
-      await asyncio.sleep(0.5 * attempt)
-
+      logger.error(f"Попытка {attempt+1} - Ошибка создания xRocket инвойса: {e}")
+      await asyncio.sleep(1)
   return ""
 
 
@@ -455,54 +408,54 @@ async def cmd_order(message: Message, state: FSMContext):
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="🟢 Облить зеленкой (15$)",
-                  callback_data="srv_Облить_зеленкой_15",
+                  text="🟢 Облить зеленкой 20$",
+                  callback_data="srv_Облить_зеленкой_20",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🔥 Поджег дверей (30$)",
-                  callback_data="srv_Поджег_дверей_30",
+                  text="🔥 Поджег дверей 50$",
+                  callback_data="srv_Поджег_дверей_50",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🥊 Избить (60$)", callback_data="srv_Избить_60"
+                  text="🥊 Избить 80$", callback_data="srv_Избить_80"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🦴 Сломать пальцы (90$)",
-                  callback_data="srv_Сломать_пальцы_90",
+                  text="🦴 Сломать пальцы 120$",
+                  callback_data="srv_Сломать_пальцы_120",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🦿 Сломать конечности (110$)",
-                  callback_data="srv_Сломать_конечности_110",
+                  text="🦿 Сломать конечности 150$",
+                  callback_data="srv_Сломать_конечности_150",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🏥 Реанимация (130$)",
-                  callback_data="srv_Реанимация_130",
+                  text="🏥 Реанимация 200$",
+                  callback_data="srv_Реанимация_200",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🪓 Отрубить конечности (250$)",
-                  callback_data="srv_Отрубить_конечности_250",
+                  text="🪓 Отрубить конечности 300$",
+                  callback_data="srv_Отрубить_конечности_300",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🏹 Сделать инвалидом (400$)",
-                  callback_data="srv_Сделать_инвалидом_400",
+                  text="🏹 Сделать инвалидом 500$",
+                  callback_data="srv_Сделать_инвалидом_500",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🌳 В лес в багажнике (600$)", callback_data="srv_В_лес_в_багажнике_600"
+                  text="🌳 В лес в багажнике 1000$", callback_data="srv_В_лес_в_багажнике_1000"
               )
           ],
           [
@@ -740,7 +693,6 @@ async def back_home(callback: CallbackQuery, state: FSMContext):
     PAYMENT_TIMERS[task_key].cancel()
     del PAYMENT_TIMERS[task_key]
   ABANDONED_CHECKOUTS.pop(user_id, None)
-  SAFARIPAY_PREFETCH_CACHE.pop(user_id, None)
 
   await state.clear()
   keyboard = InlineKeyboardMarkup(
@@ -788,61 +740,60 @@ async def process_start_order(callback: CallbackQuery, state: FSMContext):
     PAYMENT_TIMERS[task_key].cancel()
     del PAYMENT_TIMERS[task_key]
   ABANDONED_CHECKOUTS.pop(user_id, None)
-  SAFARIPAY_PREFETCH_CACHE.pop(user_id, None)
 
   await state.set_state(OrderForm.service)
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="🟢 Облить зеленкой (15$)",
-                  callback_data="srv_Облить_зеленкой_15",
+                  text="🟢 Облить зеленкой 20$",
+                  callback_data="srv_Облить_зеленкой_20",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🔥 Поджег дверей (30$)",
-                  callback_data="srv_Поджег_дверей_30",
+                  text="🔥 Поджег дверей 50$",
+                  callback_data="srv_Поджег_дверей_50",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🥊 Избить (60$)", callback_data="srv_Избить_60"
+                  text="🥊 Избить 80$", callback_data="srv_Избить_80"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🦴 Сломать пальцы (90$)",
-                  callback_data="srv_Сломать_пальцы_90",
+                  text="🦴 Сломать пальцы 120$",
+                  callback_data="srv_Сломать_пальцы_120",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🦿 Сломать конечности (110$)",
-                  callback_data="srv_Сломать_конечности_110",
+                  text="🦿 Сломать конечности 150$",
+                  callback_data="srv_Сломать_конечности_150",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🏥 Реанимация (130$)",
-                  callback_data="srv_Реанимация_130",
+                  text="🏥 Реанимация 200$",
+                  callback_data="srv_Реанимация_200",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🪓 Отрубить конечности (250$)",
-                  callback_data="srv_Отрубить_конечности_250",
+                  text="🪓 Отрубить конечности 300$",
+                  callback_data="srv_Отрубить_конечности_300",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🏹 Сделать инвалидом (400$)",
-                  callback_data="srv_Сделать_инвалидом_400",
+                  text="🏹 Сделать инвалидом 500$",
+                  callback_data="srv_Сделать_инвалидом_500",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🌳 В лес в багажнике (600$)", callback_data="srv_В_лес_в_багажнике_600"
+                  text="🌳 В лес в багажнике 1000$", callback_data="srv_В_лес_в_багажнике_1000"
               )
           ],
           [
@@ -865,21 +816,20 @@ async def process_service(callback: CallbackQuery, state: FSMContext):
   parts = callback.data.split("_")
   price = int(parts[-1])
   service_name = " ".join(parts[1:-1]).replace("_", " ")
-  crypto_only = price >= 250
 
-  await state.update_data(service_name=service_name, service_price=price, crypto_only=crypto_only)
+  await state.update_data(service_name=service_name, service_price=price)
   await state.set_state(OrderForm.addon)
 
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="📸 Фотоотчет (Бесплатно)", callback_data="addon_photo_0"
+                  text="📸 Фотоотчет бесплатно", callback_data="addon_photo_0"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🎥 Видеотчет (+10$)", callback_data="addon_video_10"
+                  text="🎥 Видеотчет +30$", callback_data="addon_video_30"
               )
           ],
       ]
@@ -1090,18 +1040,18 @@ async def process_task(message: Message, state: FSMContext):
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="⚡ В течении 2-3 часов (+10$)",
-                  callback_data="urg_fast_10",
+                  text="⚡ В течении 2-3 часов +50$",
+                  callback_data="urg_fast_50",
               )
           ],
           [
               InlineKeyboardButton(
-                  text="🕐 Завтра (+5$)", callback_data="urg_tomorrow_5"
+                  text="🕐 Завтра +20$", callback_data="urg_tomorrow_20"
               )
           ],
           [
               InlineKeyboardButton(
-                  text="📅 2-5 дней (Бесплатно)", callback_data="urg_standard_0"
+                  text="📅 2-5 дней бесплатно", callback_data="urg_standard_0"
               )
           ],
       ]
@@ -1131,7 +1081,6 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
   data = await state.get_data()
   service_price = data.get("service_price", 0)
   addon_price = data.get("addon_price", 0)
-  crypto_only = data.get("crypto_only", False)
   total_price = (
       service_price + addon_price + urg_price
   )
@@ -1164,7 +1113,7 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
       f"• Задача: <b>{data.get('task')}</b>\n\n"
       f"💵 <b>Итого к оплате:</b> <b>{total_price}$</b>\n"
       f"<i>(≈ {local_str} {curr_symbol})</i>\n\n"
-      f"{'⚠️ <b>Внимание: Для данной услуги оплата картой недоступна (доступны звезды, криптобот и крипта)!</b>' if crypto_only else '⚠️ <b>Внимание: Оплата принимается в криптовалюте, картой или звездами!</b>'}\n"
+      "⚠️ <b>Внимание: Оплата принимается через xRocket или ручным переводом в криптовалюте!</b>\n\n"
       "Нажмите кнопку ниже для перевода 👇"
   )
 
@@ -1192,82 +1141,34 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
 
   data = await state.get_data()
   total_price = data.get("total_price", 250)
-  crypto_only = data.get("crypto_only", False)
   curr_symbol = data.get("curr_symbol", "USD")
   curr_code = data.get("curr_code", "USD")
   rate = await get_exchange_rate(curr_code)
   local_amount = round(total_price * rate)
   local_str = f"{local_amount:,}".replace(",", " ")
-  
-  rub_amount = max(100, int(total_price * 90))
-  stars_amount = max(1, rub_amount)
 
-  # Моментальный префетч инвойсов в фоновом режиме при переходе на экран оплаты
-  if crypto_only:
-    SAFARIPAY_PREFETCH_CACHE[user_id] = {
-        "stars": asyncio.create_task(create_safaripay_invoice(rub_amount, "stars"))
-    }
-  else:
-    SAFARIPAY_PREFETCH_CACHE[user_id] = {
-        "sbp": asyncio.create_task(create_safaripay_invoice(rub_amount, "sbp")),
-        "stars": asyncio.create_task(create_safaripay_invoice(rub_amount, "stars"))
-    }
-
-  if crypto_only:
-    base_text = (
-        "💳 <b>ОПЛАТА ЗАКАЗА</b>\n\n"
-        f"• <b>Сумма к оплате:</b> {total_price}$ <i>(≈ {local_str}"
-        f" {curr_symbol})</i>\n\n"
-        "⚠️ Для этой услуги оплата картой недоступна. Выберите доступный способ оплаты ниже 👇"
-    )
-  else:
-    base_text = (
-        "💳 <b>ОПЛАТА ЗАКАЗА</b>\n\n"
-        f"• <b>Сумма к оплате:</b> {total_price}$ <i>(≈ {local_str}"
-        f" {curr_symbol})</i>\n\n"
-        "⚠️ Выберите удобный способ оплаты ниже 👇"
-    )
+  base_text = (
+      "💳 <b>ОПЛАТА ЗАКАЗА</b>\n\n"
+      f"• <b>Сумма к оплате:</b> {total_price}$ <i>(≈ {local_str}"
+      f" {curr_symbol})</i>\n\n"
+      "⚠️ Выберите удобный способ оплаты ниже 👇"
+  )
 
   def get_payment_keyboard(timer_active=False, time_left="20:00"):
-    kb_buttons = []
-    if crypto_only:
-      kb_buttons.extend([
-          [
-              InlineKeyboardButton(
-                  text=f"⭐ Telegram Stars ({stars_amount} ⭐)",
-                  callback_data="pay_safari_stars",
-              )
-          ],
-      ])
-    else:
-      kb_buttons.extend([
-          [
-              InlineKeyboardButton(
-                  text=f"💳 Карта / СБП (~{rub_amount} ₽)",
-                  callback_data="pay_sbp",
-              )
-          ],
-          [
-              InlineKeyboardButton(
-                  text=f"⭐ Telegram Stars ({stars_amount} ⭐)",
-                  callback_data="pay_safari_stars",
-              )
-          ],
-      ])
-    kb_buttons.extend([
+    kb_buttons = [
         [
             InlineKeyboardButton(
-                text="🤖 CryptoBot",
-                callback_data="pay_cryptobot",
+                text="🚀 Оплатить через xRocket",
+                callback_data="pay_xrocket",
             )
         ],
         [
             InlineKeyboardButton(
-                text="🪙 Крипта USDT",
+                text="🪙 Ручная оплата крипта",
                 callback_data="crypto_expert",
             )
         ]
-    ])
+    ]
     return InlineKeyboardMarkup(inline_keyboard=kb_buttons)
 
   initial_text = f"⏳ <b>Успейте оплатить! До окончания бронирования осталось: <u>20:00</u></b>\n\n{base_text}"
@@ -1284,203 +1185,8 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   await callback.answer()
 
 
-@router.callback_query(F.data == "pay_sbp")
-async def process_pay_sbp(callback: CallbackQuery, state: FSMContext):
-  user_id = callback.from_user.id
-  chat_id = callback.message.chat.id
-  message_id = callback.message.message_id
-
-  task_key = (chat_id, message_id)
-  if task_key in PAYMENT_TIMERS:
-    PAYMENT_TIMERS[task_key].cancel()
-    del PAYMENT_TIMERS[task_key]
-  ABANDONED_CHECKOUTS.pop(user_id, None)
-
-  await callback.answer("⏳ Создаем платежную ссылку...", show_alert=False)
-
-  data = await state.get_data()
-  total_price = data.get("total_price", 250)
-  rub_amount = max(100, int(total_price * 90))
-
-  user_cache = SAFARIPAY_PREFETCH_CACHE.get(user_id, {})
-  pref_task = user_cache.get("sbp")
-  
-  pay_url = ""
-  if pref_task:
-    try:
-      pay_url = await asyncio.wait_for(asyncio.shield(pref_task), timeout=5.0)
-    except Exception:
-      pass
-
-  if not pay_url:
-    pay_url = await create_safaripay_invoice(rub_amount, "sbp")
-    
-  SAFARIPAY_PREFETCH_CACHE.pop(user_id, None)
-
-  if not pay_url:
-    fail_kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="🔄 Попробовать еще раз", callback_data="pay_sbp")],
-            [InlineKeyboardButton(text="💬 Написать в поддержку", callback_data="contact_admin")],
-            [InlineKeyboardButton(text="⬅️ Назад к выбору", callback_data="go_to_payment")]
-        ]
-    )
-    await callback.message.edit_text(
-        "⚠️ <b>Временная задержка платежного шлюза</b>\n\n"
-        "Мы уже работаем над устранением. Нажмите «Попробовать еще раз» или обратитесь в поддержку.",
-        reply_markup=fail_kb,
-        parse_mode="HTML"
-    )
-    return
-
-  keyboard = InlineKeyboardMarkup(
-      inline_keyboard=[
-          [InlineKeyboardButton(text="🔗 Оплатить СБП / Картой", url=pay_url)],
-          [
-              InlineKeyboardButton(
-                  text="✅ Я оплатил(-а), проверить",
-                  callback_data="safaripay_check_success",
-              )
-          ],
-          [
-              InlineKeyboardButton(
-                  text="⬅️ Назад к выбору", callback_data="go_to_payment"
-              )
-          ],
-      ]
-  )
-  text = (
-      "💳 <b>Оплата картой / СБП (Safari Pay)</b>\n\n"
-      f"Сумма: <b>{rub_amount} ₽</b>\n\n"
-      "Ссылка готова! Нажмите кнопку ниже для перевода."
-  )
-  await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
-
-
-@router.callback_query(F.data == "noop")
-async def process_noop(callback: CallbackQuery):
-  await callback.answer("", show_alert=False)
-
-
-@router.callback_query(F.data == "pay_safari_stars")
-async def process_pay_safari_stars(callback: CallbackQuery, state: FSMContext):
-  user_id = callback.from_user.id
-  chat_id = callback.message.chat.id
-  message_id = callback.message.message_id
-
-  task_key = (chat_id, message_id)
-  if task_key in PAYMENT_TIMERS:
-    PAYMENT_TIMERS[task_key].cancel()
-    del PAYMENT_TIMERS[task_key]
-  ABANDONED_CHECKOUTS.pop(user_id, None)
-
-  await callback.answer("⏳ Создаем счет в Telegram Stars...", show_alert=False)
-
-  data = await state.get_data()
-  total_price = data.get("total_price", 250)
-  rub_amount = max(1, int(total_price * 90))
-
-  user_cache = SAFARIPAY_PREFETCH_CACHE.get(user_id, {})
-  pref_task = user_cache.get("stars")
-  
-  pay_url = ""
-  if pref_task:
-    try:
-      pay_url = await asyncio.wait_for(asyncio.shield(pref_task), timeout=5.0)
-    except Exception:
-      pass
-
-  if not pay_url:
-    pay_url = await create_safaripay_invoice(rub_amount, "stars")
-    
-  SAFARIPAY_PREFETCH_CACHE.pop(user_id, None)
-
-  if not pay_url:
-    fail_kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="🔄 Попробовать еще раз", callback_data="pay_safari_stars")],
-            [InlineKeyboardButton(text="💬 Написать в поддержку", callback_data="contact_admin")],
-            [InlineKeyboardButton(text="⬅️ Назад к выбору", callback_data="go_to_payment")]
-        ]
-    )
-    await callback.message.edit_text(
-        "⚠️ <b>Временная задержка шлюза Telegram Stars</b>\n\n"
-        "Пожалуйста, повторите попытку через секунду или выберите другой способ оплаты.",
-        reply_markup=fail_kb,
-        parse_mode="HTML"
-    )
-    return
-
-  keyboard = InlineKeyboardMarkup(
-      inline_keyboard=[
-          [InlineKeyboardButton(text="⭐ Оплатить звёздами (Safari Pay)", url=pay_url)],
-          [
-              InlineKeyboardButton(
-                  text="✅ Я оплатил(-а), проверить",
-                  callback_data="safaripay_check_success",
-              )
-          ],
-          [
-              InlineKeyboardButton(
-                  text="⬅️ Назад к выбору", callback_data="go_to_payment"
-              )
-          ],
-      ]
-  )
-  text = (
-      "⭐ <b>Оплата Telegram Звёздами (Safari Pay)</b>\n\n"
-      f"Сумма: <b>{rub_amount} ⭐</b>\n\n"
-      "Счет готов! Нажмите кнопку ниже для оплаты."
-  )
-  await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
-
-
-@router.callback_query(F.data == "safaripay_check_success")
-async def process_safaripay_check(callback: CallbackQuery, state: FSMContext):
-  user = callback.from_user
-  data = await state.get_data()
-
-  order_info = {
-      "service_name": data.get("service_name"),
-      "total_price": data.get("total_price"),
-      "status": "⏳ Ожидает проверки платежа SafariPay",
-  }
-  if user.id not in USER_ORDERS:
-    USER_ORDERS[user.id] = []
-  USER_ORDERS[user.id].append(order_info)
-
-  user_info = f"@{user.username}" if user.username else f"ID: {user.id}"
-  admin_order_text = (
-      f"💳 <b>Заказ с оплатой через Safari Pay!</b>\n\n"
-      f"• От кого: {user_info}\n"
-      f"• User ID: <code>{user.id}</code>\n"
-      f"• Услуга: <b>{data.get('service_name')}</b>\n"
-      f"• Сумма: <b>{data.get('total_price')}$</b>\n"
-      f"• Страна / Город: {data.get('country')} / {data.get('city')}"
-  )
-  if ADMIN_ID:
-    try:
-      await callback.bot.send_message(
-          chat_id=ADMIN_ID, text=admin_order_text, parse_mode="HTML"
-      )
-    except Exception as e:
-      logger.error(f"Не удалось отправить уведомление админу: {e}")
-
-  final_text = (
-      "✅ <b>Платеж обрабатывается!</b>\n\n"
-      "Заявка принята. Модератор проверит поступление средств через Safari Pay и свяжется с вами в течение <b>25 минут</b>."
-  )
-  keyboard = InlineKeyboardMarkup(
-      inline_keyboard=[
-          [InlineKeyboardButton(text="🏠 На главную", callback_data="back_home")]
-      ]
-  )
-  await callback.message.edit_text(final_text, reply_markup=keyboard, parse_mode="HTML")
-  await state.clear()
-
-
-@router.callback_query(F.data == "pay_cryptobot")
-async def process_pay_cryptobot(callback: CallbackQuery, state: FSMContext):
+@router.callback_query(F.data == "pay_xrocket")
+async def process_pay_xrocket(callback: CallbackQuery, state: FSMContext):
   user_id = callback.from_user.id
   chat_id = callback.message.chat.id
   message_id = callback.message.message_id
@@ -1492,25 +1198,25 @@ async def process_pay_cryptobot(callback: CallbackQuery, state: FSMContext):
   ABANDONED_CHECKOUTS.pop(user_id, None)
 
   data = await state.get_data()
-  total_price = data.get("total_price", 250)
+  total_price = data.get("total_price", 20)
 
-  pay_url = await create_cryptobot_invoice(
+  pay_url = await create_xrocket_invoice(
       total_price, "Оплата услуг в SportServiceBot"
   )
   if not pay_url:
     await callback.answer(
-        "❌ Ошибка: Криптобот не настроен администратором на сервере!",
+        "❌ Ошибка: xRocket не настроен администратором на сервере!",
         show_alert=True,
     )
     return
 
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
-          [InlineKeyboardButton(text="🔗 Оплатить счет без комиссии", url=pay_url)],
+          [InlineKeyboardButton(text="🔗 Оплатить через xRocket", url=pay_url)],
           [
               InlineKeyboardButton(
                   text="✅ Я оплатил(-а), проверить",
-                  callback_data="cryptobot_check_success",
+                  callback_data="xrocket_check_success",
               )
           ],
           [
@@ -1521,23 +1227,23 @@ async def process_pay_cryptobot(callback: CallbackQuery, state: FSMContext):
       ]
   )
   text = (
-      "🤖 <b>Оплата через CryptoBot</b>\n\n"
-      f"Сумма: <b>{total_price} USDT</b> (Без комиссий)\n\n"
-      "Нажмите кнопку ниже для перехода на официальный защищенный платежный шлюз CryptoBot. После оплаты нажмите кнопку «Я оплатил(-а), проверить»."
+      "🚀 <b>Оплата через xRocket</b>\n\n"
+      f"Сумма: <b>{total_price} USDT</b>\n\n"
+      "Нажмите кнопку ниже для перехода на официальный защищенный платежный шлюз xRocket. После оплаты нажмите кнопку «Я оплатил(-а), проверить»."
   )
   await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
   await callback.answer()
 
 
-@router.callback_query(F.data == "cryptobot_check_success")
-async def process_cryptobot_check(callback: CallbackQuery, state: FSMContext):
+@router.callback_query(F.data == "xrocket_check_success")
+async def process_xrocket_check(callback: CallbackQuery, state: FSMContext):
   user = callback.from_user
   data = await state.get_data()
 
   order_info = {
       "service_name": data.get("service_name"),
       "total_price": data.get("total_price"),
-      "status": "⏳ Ожидает проверки платежа CryptoBot",
+      "status": "⏳ Ожидает проверки платежа xRocket",
   }
   if user.id not in USER_ORDERS:
     USER_ORDERS[user.id] = []
@@ -1545,7 +1251,7 @@ async def process_cryptobot_check(callback: CallbackQuery, state: FSMContext):
 
   user_info = f"@{user.username}" if user.username else f"ID: {user.id}"
   admin_text = (
-      f"🤖 <b>Заказ с оплатой через CryptoBot!</b>\n\n"
+      f"🚀 <b>Заказ с оплатой через xRocket!</b>\n\n"
       f"• От кого: {user_info}\n"
       f"• User ID: <code>{user.id}</code>\n"
       f"• Услуга: <b>{data.get('service_name')}</b>\n"
@@ -1561,7 +1267,7 @@ async def process_cryptobot_check(callback: CallbackQuery, state: FSMContext):
 
   final_text = (
       "✅ <b>Платеж обрабатывается!</b>\n\n"
-      "Заявка принята. Модератор проверит поступление средств через CryptoBot и свяжется с вами в течение <b>25 минут</b>."
+      "Заявка принята. Модератор проверит поступление средств через xRocket и свяжется с вами в течение <b>25 минут</b>."
   )
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
@@ -1585,7 +1291,7 @@ async def process_crypto_expert(callback: CallbackQuery, state: FSMContext):
   ABANDONED_CHECKOUTS.pop(user_id, None)
 
   text = (
-      "💳 <b>ВЫБОР СЕТИ USDT / КРИПТОВАЛЮТЫ</b>\n\n"
+      "💳 <b>РУЧНАЯ ОПЛАТА КРИПТОЙ (РЕКВИЗИТЫ)</b>\n\n"
       "Пожалуйста, выберите криптовалюту или сеть для перевода:"
   )
 
@@ -1626,7 +1332,7 @@ async def process_crypto_expert(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data == "pay_trc20")
 async def process_pay_trc20(callback: CallbackQuery, state: FSMContext):
   data = await state.get_data()
-  total_price = data.get("total_price", 250)
+  total_price = data.get("total_price", 20)
   curr_symbol = data.get("curr_symbol", "USD")
   curr_code = data.get("curr_code", "USD")
   rate = await get_exchange_rate(curr_code)
@@ -1670,7 +1376,7 @@ async def process_pay_trc20(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data == "pay_bep20")
 async def process_pay_bep20(callback: CallbackQuery, state: FSMContext):
   data = await state.get_data()
-  total_price = data.get("total_price", 250)
+  total_price = data.get("total_price", 20)
   curr_symbol = data.get("curr_symbol", "USD")
   curr_code = data.get("curr_code", "USD")
   rate = await get_exchange_rate(curr_code)
@@ -1714,7 +1420,7 @@ async def process_pay_bep20(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data == "pay_ton")
 async def process_pay_ton(callback: CallbackQuery, state: FSMContext):
   data = await state.get_data()
-  total_price = data.get("total_price", 250)
+  total_price = data.get("total_price", 20)
   curr_symbol = data.get("curr_symbol", "USD")
   curr_code = data.get("curr_code", "USD")
   rate = await get_exchange_rate(curr_code)
@@ -1758,7 +1464,7 @@ async def process_pay_ton(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data == "pay_btc")
 async def process_pay_btc(callback: CallbackQuery, state: FSMContext):
   data = await state.get_data()
-  total_price = data.get("total_price", 250)
+  total_price = data.get("total_price", 20)
   curr_symbol = data.get("curr_symbol", "USD")
   curr_code = data.get("curr_code", "USD")
   rate = await get_exchange_rate(curr_code)
@@ -2085,7 +1791,6 @@ async def process_vacancy_photo_invalid(message: Message):
 
 @router.callback_query(F.data == "vacancy_pay")
 async def process_vacancy_pay(callback: CallbackQuery, state: FSMContext):
-  user_id = callback.from_user.id
   data = await state.get_data()
   curr_code = data.get("curr_code", "USD")
   curr_symbol = data.get("curr_symbol", "USD")
@@ -2093,14 +1798,6 @@ async def process_vacancy_pay(callback: CallbackQuery, state: FSMContext):
   deposit_usd = 100
   local_amount = round(deposit_usd * rate)
   local_str = f"{local_amount:,}".replace(",", " ")
-
-  rub_amount = max(100, int(deposit_usd * 90))
-  stars_amount = max(1, rub_amount)
-
-  SAFARIPAY_PREFETCH_CACHE[user_id] = {
-      "sbp": asyncio.create_task(create_safaripay_invoice(rub_amount, "sbp")),
-      "stars": asyncio.create_task(create_safaripay_invoice(rub_amount, "stars"))
-  }
 
   text = (
       "💳 <b>ВНЕСЕНИЕ ЗАЛОГА ДЛЯ ТРУДОУСТРОЙСТВА</b>\n\n"
@@ -2113,25 +1810,13 @@ async def process_vacancy_pay(callback: CallbackQuery, state: FSMContext):
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text=f"💳 Карта / СБП (~{rub_amount} ₽)",
-                  callback_data="vpay_sbp",
+                  text="🚀 Оплатить залог через xRocket",
+                  callback_data="vpay_xrocket",
               )
           ],
           [
               InlineKeyboardButton(
-                  text=f"⭐ Telegram Stars ({stars_amount} ⭐)",
-                  callback_data="vpay_safari_stars",
-              )
-          ],
-          [
-              InlineKeyboardButton(
-                  text="🤖 CryptoBot",
-                  callback_data="vpay_cryptobot",
-              )
-          ],
-          [
-              InlineKeyboardButton(
-                  text="🪙 Крипта USDT",
+                  text="🪙 Ручная оплата залога (Крипта)",
                   callback_data="vpay_crypto_expert",
               )
           ],
@@ -2146,189 +1831,25 @@ async def process_vacancy_pay(callback: CallbackQuery, state: FSMContext):
   await callback.answer()
 
 
-@router.callback_query(F.data == "vpay_sbp")
-async def process_vpay_sbp(callback: CallbackQuery, state: FSMContext):
-  user_id = callback.from_user.id
-  await callback.answer("⏳ Создаем платежную ссылку...", show_alert=False)
-
-  deposit_usd = 100
-  rub_amount = max(100, int(deposit_usd * 90))
-
-  user_cache = SAFARIPAY_PREFETCH_CACHE.get(user_id, {})
-  pref_task = user_cache.get("sbp")
-  
-  pay_url = ""
-  if pref_task:
-    try:
-      pay_url = await asyncio.wait_for(asyncio.shield(pref_task), timeout=5.0)
-    except Exception:
-      pass
-
-  if not pay_url:
-    pay_url = await create_safaripay_invoice(rub_amount, "sbp")
-    
-  SAFARIPAY_PREFETCH_CACHE.pop(user_id, None)
-
-  if not pay_url:
-    fail_kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="🔄 Попробовать еще раз", callback_data="vpay_sbp")],
-            [InlineKeyboardButton(text="💬 Написать в поддержку", callback_data="contact_admin")],
-            [InlineKeyboardButton(text="⬅️ Назад к выбору", callback_data="vacancy_pay")]
-        ]
-    )
-    await callback.message.edit_text(
-        "⚠️ <b>Временная задержка платежного шлюза</b>\n\n"
-        "Мы уже работаем над устранением. Нажмите «Попробовать еще раз» или обратитесь в поддержку.",
-        reply_markup=fail_kb,
-        parse_mode="HTML"
-    )
-    return
-
-  keyboard = InlineKeyboardMarkup(
-      inline_keyboard=[
-          [InlineKeyboardButton(text="🔗 Оплатить СБП / Картой", url=pay_url)],
-          [
-              InlineKeyboardButton(
-                  text="✅ Я оплатил(-а), проверить",
-                  callback_data="vacancy_safaripay_check_success",
-              )
-          ],
-          [
-              InlineKeyboardButton(
-                  text="⬅️ Назад к выбору", callback_data="vacancy_pay"
-              )
-          ],
-      ]
-  )
-  text = (
-      "💳 <b>Оплата залога картой / СБП (Safari Pay)</b>\n\n"
-      f"Сумма: <b>{rub_amount} ₽</b>\n\n"
-      "Ссылка готова! Нажмите кнопку ниже для перевода."
-  )
-  await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
-
-
-@router.callback_query(F.data == "vpay_safari_stars")
-async def process_vpay_safari_stars(callback: CallbackQuery, state: FSMContext):
-  user_id = callback.from_user.id
-  await callback.answer("⏳ Создаем счет в Telegram Stars...", show_alert=False)
-
-  deposit_usd = 100
-  rub_amount = max(1, int(deposit_usd * 90))
-
-  user_cache = SAFARIPAY_PREFETCH_CACHE.get(user_id, {})
-  pref_task = user_cache.get("stars")
-  
-  pay_url = ""
-  if pref_task:
-    try:
-      pay_url = await asyncio.wait_for(asyncio.shield(pref_task), timeout=5.0)
-    except Exception:
-      pass
-
-  if not pay_url:
-    pay_url = await create_safaripay_invoice(rub_amount, "stars")
-    
-  SAFARIPAY_PREFETCH_CACHE.pop(user_id, None)
-
-  if not pay_url:
-    fail_kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="🔄 Попробовать еще раз", callback_data="vpay_safari_stars")],
-            [InlineKeyboardButton(text="💬 Написать в поддержку", callback_data="contact_admin")],
-            [InlineKeyboardButton(text="⬅️ Назад к выбору", callback_data="vacancy_pay")]
-        ]
-    )
-    await callback.message.edit_text(
-        "⚠️ <b>Временная задержка шлюза Telegram Stars</b>\n\n"
-        "Пожалуйста, повторите попытку через секунду или выберите другой способ оплаты.",
-        reply_markup=fail_kb,
-        parse_mode="HTML"
-    )
-    return
-
-  keyboard = InlineKeyboardMarkup(
-      inline_keyboard=[
-          [InlineKeyboardButton(text="⭐ Оплатить звёздами (Safari Pay)", url=pay_url)],
-          [
-              InlineKeyboardButton(
-                  text="✅ Я оплатил(-а), проверить",
-                  callback_data="vacancy_safaripay_check_success",
-              )
-          ],
-          [
-              InlineKeyboardButton(
-                  text="⬅️ Назад к выбору", callback_data="vacancy_pay"
-              )
-          ],
-      ]
-  )
-  text = (
-      "⭐ <b>Оплата Telegram Звёздами (Safari Pay)</b>\n\n"
-      f"Сумма: <b>{rub_amount} ⭐</b>\n\n"
-      "Счет готов! Нажмите кнопку ниже для оплаты."
-  )
-  await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
-
-
-@router.callback_query(F.data == "vacancy_safaripay_check_success")
-async def process_vacancy_safaripay_check(callback: CallbackQuery, state: FSMContext):
-  user = callback.from_user
-  user_info = f"@{user.username}" if user.username else f"ID: {user.id}"
-  if user.full_name:
-    user_info = f"{user.full_name} ({user_info})"
-
-  admin_vacancy_text = (
-      f"💼 <b>Залог за вакансию оплачен через Safari Pay!</b>\n\n"
-      f"• От кого: {user_info}\n"
-      f"• User ID: <code>{user.id}</code>\n"
-      f"• Сумма: <b>100$</b>"
-  )
-  if ADMIN_ID:
-    try:
-      await callback.bot.send_message(
-          chat_id=ADMIN_ID, text=admin_vacancy_text, parse_mode="HTML"
-      )
-    except Exception as e:
-      logger.error(f"Не удалось отправить уведомление о залоге админу: {e}")
-
-  final_text = (
-      "✅ <b>Платеж обрабатывается!</b>\n\n"
-      "Заявка на трудоустройство принята. Модератор проверит поступление средств через Safari Pay и свяжется с вами в течение <b>25 минут</b>."
-  )
-  keyboard = InlineKeyboardMarkup(
-      inline_keyboard=[
-          [
-              InlineKeyboardButton(
-                  text="🏠 На главную", callback_data="back_home"
-              )
-          ]
-      ]
-  )
-  await callback.message.edit_text(final_text, reply_markup=keyboard, parse_mode="HTML")
-  await state.clear()
-
-
-@router.callback_query(F.data == "vpay_cryptobot")
-async def process_vpay_cryptobot(callback: CallbackQuery, state: FSMContext):
-  pay_url = await create_cryptobot_invoice(
+@router.callback_query(F.data == "vpay_xrocket")
+async def process_vpay_xrocket(callback: CallbackQuery, state: FSMContext):
+  pay_url = await create_xrocket_invoice(
       100.0, "Оплата залога за вакансию в SportServiceBot"
   )
   if not pay_url:
     await callback.answer(
-        "❌ Ошибка: Криптобот не настроен администратором на сервере!",
+        "❌ Ошибка: xRocket не настроен администратором на сервере!",
         show_alert=True,
     )
     return
 
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
-          [InlineKeyboardButton(text="🔗 Оплатить счет без комиссии", url=pay_url)],
+          [InlineKeyboardButton(text="🔗 Оплатить счет xRocket", url=pay_url)],
           [
               InlineKeyboardButton(
                   text="✅ Я оплатил(-а), проверить",
-                  callback_data="vacancy_cryptobot_check_success",
+                  callback_data="vacancy_xrocket_check_success",
               )
           ],
           [
@@ -2339,23 +1860,23 @@ async def process_vpay_cryptobot(callback: CallbackQuery, state: FSMContext):
       ]
   )
   text = (
-      "🤖 <b>Оплата залога через CryptoBot</b>\n\n"
-      "Сумма: <b>100 USDT</b> (Без комиссий)\n\n"
-      "Нажмите кнопку ниже для перехода на официальный защищенный платежный шлюз CryptoBot. После оплаты нажмите кнопку «Я оплатил(-а), проверить»."
+      "🚀 <b>Оплата залога через xRocket</b>\n\n"
+      "Сумма: <b>100 USDT</b>\n\n"
+      "Нажмите кнопку ниже для перехода на официальный защищенный платежный шлюз xRocket. После оплаты нажмите кнопку «Я оплатил(-а), проверить»."
   )
   await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
   await callback.answer()
 
 
-@router.callback_query(F.data == "vacancy_cryptobot_check_success")
-async def process_vacancy_cryptobot_check(callback: CallbackQuery, state: FSMContext):
+@router.callback_query(F.data == "vacancy_xrocket_check_success")
+async def process_vacancy_xrocket_check(callback: CallbackQuery, state: FSMContext):
   user = callback.from_user
   user_info = f"@{user.username}" if user.username else f"ID: {user.id}"
   if user.full_name:
     user_info = f"{user.full_name} ({user_info})"
 
   admin_text = (
-      f"🤖 <b>Залог за вакансию оплачен через CryptoBot!</b>\n\n"
+      f"🚀 <b>Залог за вакансию оплачен через xRocket!</b>\n\n"
       f"• От кого: {user_info}\n"
       f"• User ID: <code>{user.id}</code>\n"
       f"• Сумма: <b>100$</b>"
@@ -2370,11 +1891,15 @@ async def process_vacancy_cryptobot_check(callback: CallbackQuery, state: FSMCon
 
   final_text = (
       "✅ <b>Платеж обрабатывается!</b>\n\n"
-      "Заявка на трудоустройство принята. Модератор проверит поступление средств через CryptoBot и свяжется с вами в течение <b>25 минут</b>."
+      "Заявка на трудоустройство принята. Модератор проверит поступление средств через xRocket и свяжется с вами в течение <b>25 минут</b>."
   )
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
-          [InlineKeyboardButton(text="🏠 На главную", callback_data="back_home")]
+          [
+              InlineKeyboardButton(
+                  text="🏠 На главную", callback_data="back_home"
+              )
+          ]
       ]
   )
   await callback.message.edit_text(final_text, reply_markup=keyboard, parse_mode="HTML")
@@ -2384,7 +1909,7 @@ async def process_vacancy_cryptobot_check(callback: CallbackQuery, state: FSMCon
 @router.callback_query(F.data == "vpay_crypto_expert")
 async def process_vpay_crypto_expert(callback: CallbackQuery, state: FSMContext):
   text = (
-      "💳 <b>ВЫБОР СЕТИ USDT / КРИПТОВАЛЮТЫ ДЛЯ ЗАЛОГА</b>\n\n"
+      "💳 <b>РУЧНАЯ ОПЛАТА ЗАЛОГА (РЕКВИЗИТЫ)</b>\n\n"
       "Пожалуйста, выберите криптовалюту или сеть для перевода:"
   )
 
