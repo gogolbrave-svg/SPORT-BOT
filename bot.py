@@ -1194,6 +1194,14 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == "cryptobot_guide")
 async def process_cryptobot_guide(callback: CallbackQuery):
+  # Останавливаем таймер оплаты для этого сообщения, чтобы он не перезаписывал гайд
+  chat_id = callback.message.chat.id
+  message_id = callback.message.message_id
+  task_key = (chat_id, message_id)
+  if task_key in PAYMENT_TIMERS:
+    PAYMENT_TIMERS[task_key].cancel()
+    del PAYMENT_TIMERS[task_key]
+
   guide_text = (
       "📖 <b>Минигайд: Как легко оплатить через CryptoBot</b>\n\n"
       "Если у вас нет криптовалюты, вы можете купить её за пару минут прямо с банковской карты (СБП, RUB, BYN, KZT и др.) через P2P:\n\n"
