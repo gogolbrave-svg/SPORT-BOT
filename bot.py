@@ -454,17 +454,17 @@ async def process_targets_count(callback: CallbackQuery, state: FSMContext):
   await state.set_state(OrderForm.country)
 
   countries = [
-      ("Россия", "country_Russia"), ("Беларусь", "country_Belarus"),
-      ("Казахстан", "country_Kazakhstan"), ("Узбекистан", "country_Uzbekistan"),
-      ("Таджикистан", "country_Tajikistan"), ("Кыргызстан", "country_Kyrgyzstan"),
-      ("Армения", "country_Armenia"), ("Молдова", "country_Moldova"),
-      ("Украина", "country_Ukraine"), ("Азербайджан", "country_Azerbaijan"),
-      ("Грузия", "country_Georgia")
+      ("🇷🇺 Россия", "country_Russia"), ("🇧🇾 Беларусь", "country_Belarus"),
+      ("🇰🇿 Казахстан", "country_Kazakhstan"), ("🇺🇿 Узбекистан", "country_Uzbekistan"),
+      ("🇹🇯 Таджикистан", "country_Tajikistan"), ("🇰🇬 Кыргызстан", "country_Kyrgyzstan"),
+      ("🇦🇲 Армения", "country_Armenia"), ("🇲🇩 Молдова", "country_Moldova"),
+      ("🇺🇦 Украина", "country_Ukraine"), ("🇦🇿 Азербайджан", "country_Azerbaijan"),
+      ("🇬🇪 Грузия", "country_Georgia")
   ]
   kb_rows = [[InlineKeyboardButton(text=c[0], callback_data=c[1])] for c in countries]
   kb_rows.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="start_order")])
 
-  await callback.message.edit_text("🌍 Выберите страну проведения:", reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_rows), parse_mode="HTML")
+  await callback.message.edit_text("🌍 <b>Страна проведения — Страна вашей цели</b>\n\nВыберите страну:", reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_rows), parse_mode="HTML")
   await callback.answer()
 
 @router.callback_query(OrderForm.country, F.data.startswith("country_"))
@@ -481,7 +481,12 @@ async def process_country(callback: CallbackQuery, state: FSMContext):
   await state.update_data(country=selected, curr_code=curr_info["code"], curr_symbol=curr_info["symbol"])
 
   await state.set_state(OrderForm.location_and_target)
-  await callback.message.edit_text(f"📍 Страна: <b>{selected}</b>\n\nОтправьте локацию и данные (одним сообщением):", parse_mode="HTML")
+  await callback.message.edit_text(
+      f"📍 Страна: <b>{selected}</b>\n\n"
+      f"📍 <b>Локация и данные цели:</b>\n"
+      f"Укажите точный адрес (город, улица, дом/квартира), а также ФИО или просто имя, данные цели (одним сообщением):",
+      parse_mode="HTML"
+  )
   await callback.answer()
 
 @router.message(OrderForm.location_and_target, F.text)
@@ -507,7 +512,11 @@ async def process_photo(message: Message, state: FSMContext):
 @router.callback_query(OrderForm.photos, F.data == "finish_photos")
 async def finish_photos(callback: CallbackQuery, state: FSMContext):
   await state.set_state(OrderForm.task_and_urgency)
-  await callback.message.edit_text("📝 Опишите задачу подробно:", parse_mode="HTML")
+  await callback.message.edit_text(
+      "📝 <b>Опишите задачу подробно</b>\n\n"
+      "Вы можете рассказать свою историю или объяснить в деталях, что хотите сделать с целью и т.д.:",
+      parse_mode="HTML"
+  )
   await callback.answer()
 
 @router.message(OrderForm.task_and_urgency, F.text)
@@ -572,7 +581,6 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
         inline_keyboard=[
             [InlineKeyboardButton(text="🤖 CryptoBot (без комиссий)", callback_data="pay_cryptobot")],
             [InlineKeyboardButton(text="🪙 Криптовалюта (выбор сети)", callback_data="crypto_expert")],
-            [InlineKeyboardButton(text="📖 Как приобрести криптовалюту", callback_data="cryptobot_guide")],
             [InlineKeyboardButton(text="💬 Нужна помощь", callback_data="payment_help_manager")]
         ]
     )
@@ -719,12 +727,12 @@ async def process_start_vacancy(callback: CallbackQuery, state: FSMContext):
   await state.clear()
   await state.set_state(VacancyForm.country)
   countries = [
-      ("Россия", "vcountry_Russia"), ("Беларусь", "vcountry_Belarus"),
-      ("Казахстан", "vcountry_Kazakhstan"), ("Узбекистан", "vcountry_Uzbekistan"),
-      ("Таджикистан", "vcountry_Tajikistan"), ("Кыргызстан", "vcountry_Kyrgyzstan"),
-      ("Армения", "vcountry_Armenia"), ("Молдова", "vcountry_Moldova"),
-      ("Украина", "vcountry_Ukraine"), ("Азербайджан", "vcountry_Azerbaijan"),
-      ("Грузия", "vcountry_Georgia")
+      ("🇷🇺 Россия", "vcountry_Russia"), ("🇧🇾 Беларусь", "vcountry_Belarus"),
+      ("🇰🇿 Казахстан", "vcountry_Kazakhstan"), ("🇺🇿 Узбекистан", "vcountry_Uzbekistan"),
+      ("🇹🇯 Таджикистан", "vcountry_Tajikistan"), ("🇰🇬 Кыргызстан", "vcountry_Kyrgyzstan"),
+      ("🇦🇲 Армения", "vcountry_Armenia"), ("🇲🇩 Молдова", "vcountry_Moldova"),
+      ("🇺🇦 Украина", "vcountry_Ukraine"), ("🇦🇿 Азербайджан", "vcountry_Azerbaijan"),
+      ("🇬🇪 Грузия", "vcountry_Georgia")
   ]
   kb_rows = [[InlineKeyboardButton(text=c[0], callback_data=c[1])] for c in countries]
   kb_rows.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="back_home")])
