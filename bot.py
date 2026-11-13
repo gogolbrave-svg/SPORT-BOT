@@ -33,7 +33,8 @@ ADMIN_ID = int(admin_env) if admin_env and admin_env.isdigit() else None
 class OrderForm(StatesGroup):
   service = State()
   country = State()
-  location_and_target = State()
+  target_location = State()
+  target_data = State()
   photos = State()
   urgency = State()
   receipt = State()
@@ -465,18 +466,36 @@ async def process_country(callback: CallbackQuery, state: FSMContext):
   curr_info = COUNTRY_CURRENCIES.get(selected, {"code": "USD", "symbol": "USD"})
   await state.update_data(country=selected, curr_code=curr_info["code"], curr_symbol=curr_info["symbol"])
 
-  await state.set_state(OrderForm.location_and_target)
+  await state.set_state(OrderForm.target_location)
   await callback.message.edit_text(
       f"📍 Страна: <b>{selected}</b>\n\n"
-      f"🪪 <b>Локация и данные цели:</b>\n"
-      f"Укажите точный адрес (город, улица, дом/квартира), а также ФИО или просто имя, данные цели (одним сообщением):",
+      f"🏢 <b>Шаг 1: Локация</b>\n"
+      f"Укажите адрес цели.\n"
+      f"<i>Пример: город, адрес, дом, квартира</i>\n\n"
+      f"⚠️ <i>В поле локации нельзя указывать «неизвестно».</i>",
       parse_mode="HTML"
   )
   await callback.answer()
 
-@router.message(OrderForm.location_and_target, F.text)
-async def process_location_and_target(message: Message, state: FSMContext):
-  await state.update_data(location_and_target=message.text.strip(), photos=[])
+@router.message(OrderForm.target_location, F.text)
+async def process_target_location(message: Message, state: FSMContext):
+  text = message.text.strip()
+  if "неизвестно" in text.lower():
+    await message.answer("❌ В локации нельзя указывать «неизвестно». Пожалуйста, укажите реальный адрес:\n<i>Пример: город, адрес, дом, квартира</i>")
+    return
+
+  await state.update_data(target_location=text)
+  await state.set_state(OrderForm.target_data)
+  await message.answer(
+      "🪪 <b>Шаг 2: Данные цели</b>\n"
+      "Укажите информацию о цели.\n"
+      "<i>Пример: ФИО, паспортные данные, просто имя, если неизвестно — можно написать «неизвестно»</i>",
+      parse_mode="HTML"
+  )
+
+@router.message(OrderForm.target_data, F.text)
+async def process_target_data(message: Message, state: FSMContext):
+  await state.update_data(target_data=message.text.strip(), photos=[])
   await state.set_state(OrderForm.photos)
   keyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="⏩ Пропустить", callback_data="finish_photos")]])
   await message.answer("📸 Прикрепите фото цели (до 3 шт.) или нажмите пропустить:", reply_markup=keyboard)
