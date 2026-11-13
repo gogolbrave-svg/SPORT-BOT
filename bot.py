@@ -131,7 +131,7 @@ async def show_main_menu(event: Message | CallbackQuery, state: FSMContext, edit
           [InlineKeyboardButton(text="🛒 Заказать", callback_data="start_order")],
           [
               InlineKeyboardButton(text="📦 Мои заказы", callback_data="my_orders"),
-              InlineKeyboardButton(text="📊 Репутация магазина", callback_data="reputation"),
+              InlineKeyboardButton(text="📊 Репутация", callback_data="reputation"),
           ],
           [
               InlineKeyboardButton(text="💬 Поддержка", callback_data="contact_admin"),
@@ -988,7 +988,7 @@ async def main():
       BotCommand(command="start", description="Главное меню"),
       BotCommand(command="order", description="Заказать"),
       BotCommand(command="my_orders", description="Мои заказы"),
-      BotCommand(command="reputation", description="Репутация магазина"),
+      BotCommand(command="reputation", description="Репутация"),
   ])
   
   asyncio.create_task(start_web_server())
