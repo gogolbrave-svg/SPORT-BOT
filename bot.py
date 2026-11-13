@@ -469,25 +469,19 @@ async def process_country(callback: CallbackQuery, state: FSMContext):
   await state.set_state(OrderForm.target_location)
   await callback.message.edit_text(
       f"📍 Страна: <b>{selected}</b>\n\n"
-      f"🏢 <b>Шаг 1: Локация</b>\n"
+      f"🏢 <b>Локация</b>\n"
       f"Укажите адрес цели.\n"
-      f"<i>Пример: город, адрес, дом, квартира</i>\n\n"
-      f"⚠️ <i>В поле локации нельзя указывать «неизвестно».</i>",
+      f"<i>Пример: город, адрес, дом, квартира</i>",
       parse_mode="HTML"
   )
   await callback.answer()
 
 @router.message(OrderForm.target_location, F.text)
 async def process_target_location(message: Message, state: FSMContext):
-  text = message.text.strip()
-  if "неизвестно" in text.lower():
-    await message.answer("❌ В локации нельзя указывать «неизвестно». Пожалуйста, укажите реальный адрес:\n<i>Пример: город, адрес, дом, квартира</i>")
-    return
-
-  await state.update_data(target_location=text)
+  await state.update_data(target_location=message.text.strip())
   await state.set_state(OrderForm.target_data)
   await message.answer(
-      "🪪 <b>Шаг 2: Данные цели</b>\n"
+      "🪪 <b>Данные цели</b>\n"
       "Укажите информацию о цели.\n"
       "<i>Пример: ФИО, паспортные данные, просто имя, если неизвестно — можно написать «неизвестно»</i>",
       parse_mode="HTML"
