@@ -33,14 +33,12 @@ ADMIN_ID = int(admin_env) if admin_env and admin_env.isdigit() else None
 
 class OrderForm(StatesGroup):
   service = State()
+  targets_count = State()
   addon = State()
   country = State()
-  target_info = State()
-  city = State()
-  address = State()
+  location_and_target = State()
   photos = State()
-  task = State()
-  urgency = State()
+  task_and_urgency = State()
   receipt = State()
 
 
@@ -472,7 +470,7 @@ async def cmd_order(message: Message, state: FSMContext):
       ]
   )
   await message.answer(
-      "<b>Шаг 1 из 8: Выбор услуги</b>\n\nВыберите нужную услугу:",
+      "<b>Шаг 1 из 6: Выбор услуги</b>\n\nВыберите нужную услугу:",
       reply_markup=keyboard,
       parse_mode="HTML",
   )
@@ -810,7 +808,7 @@ async def process_start_order(callback: CallbackQuery, state: FSMContext):
       ]
   )
   await callback.message.edit_text(
-      "<b>Шаг 1 из 8: Выбор услуги</b>\n\nВыберите нужную услугу:",
+      "<b>Шаг 1 из 6: Выбор услуги</b>\n\nВыберите нужную услугу:",
       reply_markup=keyboard,
       parse_mode="HTML",
   )
@@ -824,6 +822,35 @@ async def process_service(callback: CallbackQuery, state: FSMContext):
   service_name = " ".join(parts[1:-1]).replace("_", " ")
 
   await state.update_data(service_name=service_name, service_price=price)
+  await state.set_state(OrderForm.targets_count)
+
+  keyboard = InlineKeyboardMarkup(
+      inline_keyboard=[
+          [InlineKeyboardButton(text="1 цель (Бесплатно)", callback_data="targets_1_0")],
+          [InlineKeyboardButton(text="2 цели (+50$)", callback_data="targets_2_50")],
+          [InlineKeyboardButton(text="3 цели (+100$)", callback_data="targets_3_100")],
+          [InlineKeyboardButton(text="4 цели (+150$)", callback_data="targets_4_150")],
+          [InlineKeyboardButton(text="5 целей (+200$)", callback_data="targets_5_200")],
+          [InlineKeyboardButton(text="⬅️ Назад", callback_data="start_order")],
+      ]
+  )
+  await callback.message.edit_text(
+      f"<b>Шаг 2 из 6: Количество целей на адресе</b>\n\n"
+      f"Услуга: <b>{service_name}</b> ({price}$)\n\n"
+      f"Выберите количество целей:",
+      reply_markup=keyboard,
+      parse_mode="HTML"
+  )
+  await callback.answer()
+
+
+@router.callback_query(OrderForm.targets_count, F.data.startswith("targets_"))
+async def process_targets_count(callback: CallbackQuery, state: FSMContext):
+  parts = callback.data.split("_")
+  count = int(parts[1])
+  target_price = int(parts[2])
+
+  await state.update_data(targets_count=count, target_price=target_price)
   await state.set_state(OrderForm.addon)
 
   keyboard = InlineKeyboardMarkup(
@@ -841,8 +868,7 @@ async def process_service(callback: CallbackQuery, state: FSMContext):
       ]
   )
   await callback.message.edit_text(
-      f"<b>Шаг 2 из 8: Отчет</b>\n\nВыбрана услуга: <b>{service_name}</b>"
-      f" ({price}$)\n\nВыберите тип отчета:",
+      f"<b>Шаг 3 из 6: Отчет</b>\n\nВыберите тип отчета:",
       reply_markup=keyboard,
       parse_mode="HTML",
   )
@@ -908,7 +934,7 @@ async def process_addon(callback: CallbackQuery, state: FSMContext):
       ]
   )
   await callback.message.edit_text(
-      "<b>Шаг 3 из 8: Выбор страны</b>\n\nВыберите страну из списка:",
+      "<b>Шаг 4 из 6: Выбор страны</b>\n\nВыберите страну из списка:",
       reply_markup=keyboard,
       parse_mode="HTML",
   )
@@ -942,55 +968,31 @@ async def process_country(callback: CallbackQuery, state: FSMContext):
       curr_symbol=curr_info["symbol"],
   )
 
-  data = await state.get_data()
-
-  await state.set_state(OrderForm.target_info)
-  info_prompt = (
-      f"<b>Шаг 4 из 8: Данные цели</b>\n\nВыбрано: <b>{selected}</b>\n\n"
-      "Введите ФИО, известные паспортные данные, дату рождения или другую информацию по цели (можно просто имя):"
+  await state.set_state(OrderForm.location_and_target)
+  prompt = (
+      f"<b>Шаг 5 из 6: Локация и данные цели ({selected})</b>\n\n"
+      "✍️ Введите всю информацию <b>одним сообщением</b> в свободной форме:\n"
+      "<i>Пример: Москва, ул. Ленина 5, кв. 10 (Иванов Иван Иванович, 1990 г.р.)</i>"
   )
-  await callback.message.edit_text(info_prompt, parse_mode="HTML")
+  await callback.message.edit_text(prompt, parse_mode="HTML")
   await callback.answer()
 
 
-@router.message(OrderForm.target_info, F.text)
-async def process_target_info(message: Message, state: FSMContext):
-  await state.update_data(target_info=message.text.strip())
-  await state.set_state(OrderForm.city)
-  city_prompt = (
-      "<b>Шаг 5 из 8: Город</b>\n\n"
-      "Введите название города текстом:"
-  )
-  await message.answer(city_prompt, parse_mode="HTML")
-
-
-@router.message(OrderForm.city, F.text)
-async def process_city(message: Message, state: FSMContext):
-  await state.update_data(city=message.text.strip())
-  await state.set_state(OrderForm.address)
-  address_prompt = (
-      f"<b>Шаг 6 из 8: Адрес цели</b>\n\nГород:"
-      f" <b>{message.text.strip()}</b>\n\n"
-      "Введите точный адрес цели:"
-  )
-  await message.answer(address_prompt, parse_mode="HTML")
-
-
-@router.message(OrderForm.address, F.text)
-async def process_address(message: Message, state: FSMContext):
-  await state.update_data(address=message.text.strip(), photos=[])
+@router.message(OrderForm.location_and_target, F.text)
+async def process_location_and_target(message: Message, state: FSMContext):
+  await state.update_data(location_and_target=message.text.strip(), photos=[])
   await state.set_state(OrderForm.photos)
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="✅ Готово / Без фото", callback_data="finish_photos"
+                  text="✅ Пропустить / Без фото", callback_data="finish_photos"
               )
           ]
       ]
   )
   photos_prompt = (
-      "<b>Шаг 7 из 8: Фотография цели</b>\n\n📷 Отправьте фотографию цели. Как закончите,"
+      "<b>Шаг 6 из 6: Фотографии цели</b>\n\n📷 Отправьте фотографию цели (до 3 шт.). Как закончите,"
       " нажмите «Готово»:"
   )
   await message.answer(photos_prompt, reply_markup=keyboard, parse_mode="HTML")
@@ -1032,32 +1034,31 @@ async def process_photo_invalid(message: Message, state: FSMContext):
       inline_keyboard=[
           [
               InlineKeyboardButton(
-                  text="✅ Готово / Пропустить", callback_data="finish_photos"
+                  text="✅ Пропустить / Без фото", callback_data="finish_photos"
               )
           ]
       ]
   )
   await message.answer(
-      "⚠️ Пожалуйста, отправьте фотографию или нажмите кнопку «Готово / Без фото», чтобы продолжить.",
+      "⚠️ Пожалуйста, отправьте фотографию или нажмите кнопку «Пропустить / Без фото», чтобы продолжить.",
       reply_markup=keyboard
   )
 
 
 @router.callback_query(OrderForm.photos, F.data == "finish_photos")
 async def finish_photos(callback: CallbackQuery, state: FSMContext):
-  await state.set_state(OrderForm.task)
+  await state.set_state(OrderForm.task_and_urgency)
   await callback.message.edit_text(
-      "<b>Шаг 8 из 8: Задача</b>\n\nПодробно опишите, что нужно сделать по"
+      "<b>Финальный шаг: Задача</b>\n\nПодробно опишите, что нужно сделать по"
       " цели, можете рассказать свою историю и указать все важные детали:",
       parse_mode="HTML",
   )
   await callback.answer()
 
 
-@router.message(OrderForm.task, F.text)
-async def process_task(message: Message, state: FSMContext):
+@router.message(OrderForm.task_and_urgency, F.text)
+async def process_task_and_urgency(message: Message, state: FSMContext):
   await state.update_data(task=message.text.strip())
-  await state.set_state(OrderForm.urgency)
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
           [
@@ -1085,7 +1086,7 @@ async def process_task(message: Message, state: FSMContext):
   )
 
 
-@router.callback_query(OrderForm.urgency, F.data.startswith("urg_"))
+@router.callback_query(F.data.startswith("urg_"))
 async def process_urgency(callback: CallbackQuery, state: FSMContext):
   parts = callback.data.split("_")
   urg_type = parts[1]
@@ -1102,9 +1103,10 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
 
   data = await state.get_data()
   service_price = data.get("service_price", 0)
+  target_price = data.get("target_price", 0)
   addon_price = data.get("addon_price", 0)
   total_price = (
-      service_price + addon_price + urg_price
+      service_price + target_price + addon_price + urg_price
   )
 
   await state.update_data(total_price=total_price)
@@ -1125,12 +1127,11 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
       "🎉 <b>Ваша анкета успешно сформирована!</b>\n\n"
       "📋 <b>Сводка заказа:</b>\n"
       f"• Услуга: <b>{data.get('service_name')}</b> ({service_price}$)\n"
+      f"• Количество целей: <b>{data.get('targets_count')} шт.</b> (+{target_price}$)\n"
       f"• Отчет: <b>{data.get('addon_type')}</b> ({addon_price}$)\n"
       f"• Срочность: <b>{urgency_display}</b>\n"
       f"• Страна: <b>{data.get('country')}</b>\n"
-      f"• Данные цели (ФИО/паспорт): <b>{data.get('target_info')}</b>\n"
-      f"• Город: <b>{data.get('city')}</b>\n"
-      f"• Адрес: <b>{data.get('address')}</b>\n"
+      f"• Локация и данные цели: <b>{data.get('location_and_target')}</b>\n"
       f"• Фотографий: <b>{len(data.get('photos', []))}</b>\n"
       f"• Задача: <b>{data.get('task')}</b>\n\n"
       f"💵 <b>Итого к оплате:</b> <b>{total_price}$</b>\n"
@@ -1250,7 +1251,6 @@ async def process_payment_help_manager(callback: CallbackQuery):
 
 @router.callback_query(F.data == "cryptobot_guide")
 async def process_cryptobot_guide(callback: CallbackQuery):
-  # Останавливаем таймер оплаты для этого сообщения, чтобы он не перезаписывал гайд
   chat_id = callback.message.chat.id
   message_id = callback.message.message_id
   task_key = (chat_id, message_id)
@@ -1637,8 +1637,8 @@ async def process_receipt_photo(message: Message, state: FSMContext):
       f"• User ID: <code>{user.id}</code>\n"
       f"• Услуга: <b>{data.get('service_name')}</b>\n"
       f"• Сумма: <b>{data.get('total_price')}$</b>\n"
-      f"• Страна / Город: {data.get('country')} / {data.get('city')}\n"
-      f"• Данные цели: {data.get('target_info')}\n"
+      f"• Количество целей: <b>{data.get('targets_count')} шт.</b>\n"
+      f"• Страна / Локация: {data.get('country')} / {data.get('location_and_target')}\n"
       f"• Задача: {data.get('task')}"
   )
 
