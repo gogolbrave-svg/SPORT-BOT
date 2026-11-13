@@ -32,11 +32,10 @@ ADMIN_ID = int(admin_env) if admin_env and admin_env.isdigit() else None
 
 class OrderForm(StatesGroup):
   service = State()
-  targets_count = State()
   country = State()
   location_and_target = State()
   photos = State()
-  task_and_urgency = State()
+  urgency = State()
   receipt = State()
 
 class VacancyForm(StatesGroup):
@@ -62,15 +61,8 @@ router = Router()
 COUNTRY_CURRENCIES = {
     "Россия": {"code": "RUB", "symbol": "₽"},
     "Беларусь": {"code": "BYN", "symbol": "BYN"},
-    "Казахстан": {"code": "KZT", "symbol": "₸"},
-    "Молдова": {"code": "MDL", "symbol": "лей"},
-    "Узбекистан": {"code": "UZS", "symbol": "сум"},
-    "Кыргызстан": {"code": "KGS", "symbol": "сом"},
-    "Таджикистан": {"code": "TJS", "symbol": "сом."},
-    "Армения": {"code": "AMD", "symbol": "драм"},
     "Украина": {"code": "UAH", "symbol": "грн."},
-    "Азербайджан": {"code": "AZN", "symbol": "AZN"},
-    "Грузия": {"code": "GEL", "symbol": "GEL"},
+    "Казахстан": {"code": "KZT", "symbol": "₸"},
 }
 
 # === КРИПТОСЕТИ И РЕКВИЗИТЫ ===
@@ -112,9 +104,7 @@ async def get_exchange_rate(target_currency: str) -> float:
     logger.warning(f"Не удалось получить курс для {target_currency}: {e}")
 
   fallback_rates = {
-      "RUB": 95.0, "BYN": 3.3, "KZT": 480.0, "MDL": 18.0,
-      "UZS": 12600.0, "KGS": 89.0, "TJS": 10.9, "AMD": 390.0,
-      "UAH": 41.5, "AZN": 1.7, "GEL": 2.7,
+      "RUB": 95.0, "BYN": 3.3, "KZT": 480.0, "UAH": 41.5,
   }
   return fallback_rates.get(target_currency, 1.0)
 
@@ -262,15 +252,14 @@ async def cmd_order(message: Message, state: FSMContext):
   await state.set_state(OrderForm.service)
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
-          [InlineKeyboardButton(text="🟢 Облить зеленкой — 20$", callback_data="srv_Облить_зеленкой_20")],
-          [InlineKeyboardButton(text="🔥 Поджег дверей — 50$", callback_data="srv_Поджег_дверей_50")],
+          [InlineKeyboardButton(text="🧤 Облить зеленкой — 20$", callback_data="srv_Облить_зеленкой_20")],
+          [InlineKeyboardButton(text="🧯 Поджёг двери — 50$", callback_data="srv_Поджег_дверей_50")],
           [InlineKeyboardButton(text="🥊 Избить — 80$", callback_data="srv_Избить_80")],
-          [InlineKeyboardButton(text="🦴 Сломать пальцы — 120$", callback_data="srv_Сломать_пальцы_120")],
-          [InlineKeyboardButton(text="🦿 Сломать конечности — 150$", callback_data="srv_Сломать_конечности_150")],
-          [InlineKeyboardButton(text="🏥 Реанимация — 200$", callback_data="srv_Реанимация_200")],
+          [InlineKeyboardButton(text="🖖 Сломать пальцы — 100$", callback_data="srv_Сломать_пальцы_100")],
+          [InlineKeyboardButton(text="🦵 Сломать конечности — 200$", callback_data="srv_Сломать_конечности_200")],
           [InlineKeyboardButton(text="🪓 Отрубить конечности — 300$", callback_data="srv_Отрубить_конечности_300")],
-          [InlineKeyboardButton(text="🏹 Сделать инвалидом — 500$", callback_data="srv_Сделать_инвалидом_500")],
-          [InlineKeyboardButton(text="🌳 В лес в багажнике — 1000$", callback_data="srv_В_лес_в_багажнике_1000")],
+          [InlineKeyboardButton(text="🧑‍🦽 Сделать инвалидом — 500$", callback_data="srv_Сделать_инвалидом_500")],
+          [InlineKeyboardButton(text="🩸 Убийство — 3000$", callback_data="srv_Убийство_3000")],
           [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_home")],
       ]
   )
@@ -421,15 +410,14 @@ async def process_start_order(callback: CallbackQuery, state: FSMContext):
   await state.set_state(OrderForm.service)
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
-          [InlineKeyboardButton(text="🟢 Облить зеленкой — 20$", callback_data="srv_Облить_зеленкой_20")],
-          [InlineKeyboardButton(text="🔥 Поджег дверей — 50$", callback_data="srv_Поджег_дверей_50")],
+          [InlineKeyboardButton(text="🧤 Облить зеленкой — 20$", callback_data="srv_Облить_зеленкой_20")],
+          [InlineKeyboardButton(text="🧯 Поджёг двери — 50$", callback_data="srv_Поджег_дверей_50")],
           [InlineKeyboardButton(text="🥊 Избить — 80$", callback_data="srv_Избить_80")],
-          [InlineKeyboardButton(text="🦴 Сломать пальцы — 120$", callback_data="srv_Сломать_пальцы_120")],
-          [InlineKeyboardButton(text="🦿 Сломать конечности — 150$", callback_data="srv_Сломать_конечности_150")],
-          [InlineKeyboardButton(text="🏥 Реанимация — 200$", callback_data="srv_Реанимация_200")],
+          [InlineKeyboardButton(text="🖖 Сломать пальцы — 100$", callback_data="srv_Сломать_пальцы_100")],
+          [InlineKeyboardButton(text="🦵 Сломать конечности — 200$", callback_data="srv_Сломать_конечности_200")],
           [InlineKeyboardButton(text="🪓 Отрубить конечности — 300$", callback_data="srv_Отрубить_конечности_300")],
-          [InlineKeyboardButton(text="🏹 Сделать инвалидом — 500$", callback_data="srv_Сделать_инвалидом_500")],
-          [InlineKeyboardButton(text="🌳 В лес в багажнике — 1000$", callback_data="srv_В_лес_в_багажнике_1000")],
+          [InlineKeyboardButton(text="🧑‍🦽 Сделать инвалидом — 500$", callback_data="srv_Сделать_инвалидом_500")],
+          [InlineKeyboardButton(text="🩸 Убийство — 3000$", callback_data="srv_Убийство_3000")],
           [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_home")],
       ]
   )
@@ -443,37 +431,13 @@ async def process_service(callback: CallbackQuery, state: FSMContext):
   service_name = " ".join(parts[1:-1]).replace("_", " ")
 
   await state.update_data(service_name=service_name, service_price=price)
-  await state.set_state(OrderForm.targets_count)
-
-  keyboard = InlineKeyboardMarkup(
-      inline_keyboard=[
-          [InlineKeyboardButton(text="👥 1 цель", callback_data="targets_1_0")],
-          [InlineKeyboardButton(text="👥 2 цели (+50$)", callback_data="targets_2_50")],
-          [InlineKeyboardButton(text="👥 3 цели (+100$)", callback_data="targets_3_100")],
-          [InlineKeyboardButton(text="👥 4 цели (+150$)", callback_data="targets_4_150")],
-          [InlineKeyboardButton(text="👥 5 целей (+200$)", callback_data="targets_5_200")],
-          [InlineKeyboardButton(text="⬅️ Назад", callback_data="start_order")],
-      ]
-  )
-  await callback.message.edit_text(f"🎯 Выбрано: <b>{service_name}</b> ({price}$)\n\nУкажите количество целей на адресе:", reply_markup=keyboard, parse_mode="HTML")
-  await callback.answer()
-
-@router.callback_query(OrderForm.targets_count, F.data.startswith("targets_"))
-async def process_targets_count(callback: CallbackQuery, state: FSMContext):
-  parts = callback.data.split("_")
-  count = int(parts[1])
-  target_price = int(parts[2])
-
-  await state.update_data(targets_count=count, target_price=target_price)
   await state.set_state(OrderForm.country)
 
   countries = [
-      ("🇷🇺 Россия", "country_Russia"), ("🇧🇾 Беларусь", "country_Belarus"),
-      ("🇰🇿 Казахстан", "country_Kazakhstan"), ("🇺🇿 Узбекистан", "country_Uzbekistan"),
-      ("🇹🇯 Таджикистан", "country_Tajikistan"), ("🇰🇬 Кыргызстан", "country_Kyrgyzstan"),
-      ("🇦🇲 Армения", "country_Armenia"), ("🇲🇩 Молдова", "country_Moldova"),
-      ("🇺🇦 Украина", "country_Ukraine"), ("🇦🇿 Азербайджан", "country_Azerbaijan"),
-      ("🇬🇪 Грузия", "country_Georgia")
+      ("🇷🇺 Россия", "country_Russia"),
+      ("🇧🇾 Беларусь", "country_Belarus"),
+      ("🇺🇦 Украина", "country_Ukraine"),
+      ("🇰🇿 Казахстан", "country_Kazakhstan"),
   ]
   
   kb_rows = []
@@ -484,17 +448,15 @@ async def process_targets_count(callback: CallbackQuery, state: FSMContext):
     kb_rows.append(row)
   kb_rows.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="start_order")])
 
-  await callback.message.edit_text("🌍 <b>Страна вашей цели</b>\n\nВыберите страну:", reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_rows), parse_mode="HTML")
+  await callback.message.edit_text(f"🎯 Выбрано: <b>{service_name}</b> ({price}$)\n\n🌍 <b>Страна вашей цели</b>\n\nВыберите страну:", reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_rows), parse_mode="HTML")
   await callback.answer()
 
 @router.callback_query(OrderForm.country, F.data.startswith("country_"))
 async def process_country(callback: CallbackQuery, state: FSMContext):
   c_code = callback.data.split("_")[1]
   names = {
-      "Russia": "Россия", "Belarus": "Беларусь", "Kazakhstan": "Казахстан",
-      "Moldova": "Молдова", "Uzbekistan": "Узбекистан", "Kyrgyzstan": "Кыргызстан",
-      "Tajikistan": "Таджикистан", "Armenia": "Армения", "Ukraine": "Украина",
-      "Azerbaijan": "Азербайджан", "Georgia": "Грузия"
+      "Russia": "Россия", "Belarus": "Беларусь",
+      "Ukraine": "Украина", "Kazakhstan": "Казахстан"
   }
   selected = names.get(c_code, c_code)
   curr_info = COUNTRY_CURRENCIES.get(selected, {"code": "USD", "symbol": "USD"})
@@ -531,17 +493,7 @@ async def process_photo(message: Message, state: FSMContext):
 
 @router.callback_query(OrderForm.photos, F.data == "finish_photos")
 async def finish_photos(callback: CallbackQuery, state: FSMContext):
-  await state.set_state(OrderForm.task_and_urgency)
-  await callback.message.edit_text(
-      "📝 <b>Опишите задачу подробно</b>\n\n"
-      "Вы можете рассказать свою историю или объяснить в деталях, что хотите сделать с целью и т.д.:",
-      parse_mode="HTML"
-  )
-  await callback.answer()
-
-@router.message(OrderForm.task_and_urgency, F.text)
-async def process_task_and_urgency(message: Message, state: FSMContext):
-  await state.update_data(task=message.text.strip())
+  await state.set_state(OrderForm.urgency)
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
           [InlineKeyboardButton(text="⚡ За 2-3 часа (+50$)", callback_data="urg_fast_50")],
@@ -549,9 +501,10 @@ async def process_task_and_urgency(message: Message, state: FSMContext):
           [InlineKeyboardButton(text="📅 Стандартно (2-5 дней)", callback_data="urg_standard_0")],
       ]
   )
-  await message.answer("⏱ Выберите срочность выполнения:", reply_markup=keyboard, parse_mode="HTML")
+  await callback.message.edit_text("⏱ Выберите срочность выполнения:", reply_markup=keyboard, parse_mode="HTML")
+  await callback.answer()
 
-@router.callback_query(F.data.startswith("urg_"))
+@router.callback_query(OrderForm.urgency, F.data.startswith("urg_"))
 async def process_urgency(callback: CallbackQuery, state: FSMContext):
   parts = callback.data.split("_")
   urg_price = int(parts[2])
@@ -561,7 +514,7 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
   await state.update_data(urgency=urgency, urgency_price=urg_price)
   data = await state.get_data()
   
-  total_price = data.get("service_price", 0) + data.get("target_price", 0) + urg_price
+  total_price = data.get("service_price", 0) + urg_price
   await state.update_data(total_price=total_price)
 
   rate = await get_exchange_rate(data.get("curr_code", "USD"))
@@ -570,7 +523,6 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
   summary_text = (
       "✨ <b>Готово! Детали заказа:</b>\n\n"
       f"• Услуга: <b>{data.get('service_name')}</b>\n"
-      f"• Целей: {data.get('targets_count')} шт.\n"
       f"• Срочность: {urgency}\n"
       f"• Страна: {data.get('country')}\n\n"
       f"💵 <b>Сумма к оплате: {total_price}$</b> <i>(≈ {local_amount:,} {data.get('curr_symbol')})</i>"
@@ -592,7 +544,6 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   rate = await get_exchange_rate(data.get("curr_code", "USD"))
   local_amount = round(total_price * rate)
 
-  # Статичное сообщение без ежесекундных таймеров и подтормаживаний
   payment_text = (
       "⏳ <b>Бронирование зафиксировано</b>\n"
       "Время на завершение оплаты: <b><u>20:00</u></b>\n\n"
@@ -746,12 +697,10 @@ async def process_start_vacancy(callback: CallbackQuery, state: FSMContext):
   await state.clear()
   await state.set_state(VacancyForm.country)
   countries = [
-      ("🇷🇺 Россия", "vcountry_Russia"), ("🇧🇾 Беларусь", "vcountry_Belarus"),
-      ("🇰🇿 Казахстан", "vcountry_Kazakhstan"), ("🇺🇿 Узбекистан", "vcountry_Uzbekistan"),
-      ("🇹🇯 Таджикистан", "vcountry_Tajikistan"), ("🇰🇬 Кыргызстан", "vcountry_Kyrgyzstan"),
-      ("🇦🇲 Армения", "vcountry_Armenia"), ("🇲🇩 Молдова", "vcountry_Moldova"),
-      ("🇺🇦 Украина", "vcountry_Ukraine"), ("🇦🇿 Азербайджан", "vcountry_Azerbaijan"),
-      ("🇬🇪 Грузия", "vcountry_Georgia")
+      ("🇷🇺 Россия", "vcountry_Russia"),
+      ("🇧🇾 Беларусь", "vcountry_Belarus"),
+      ("🇺🇦 Украина", "vcountry_Ukraine"),
+      ("🇰🇿 Казахстан", "vcountry_Kazakhstan"),
   ]
   
   kb_rows = []
@@ -769,10 +718,8 @@ async def process_start_vacancy(callback: CallbackQuery, state: FSMContext):
 async def process_vacancy_country(callback: CallbackQuery, state: FSMContext):
   c_code = callback.data.split("_")[1]
   names = {
-      "Russia": "Россия", "Belarus": "Беларусь", "Kazakhstan": "Казахстан",
-      "Moldova": "Молдова", "Uzbekistan": "Узбекистан", "Kyrgyzstan": "Кыргызстан",
-      "Tajikistan": "Таджикистан", "Armenia": "Армения", "Ukraine": "Украина",
-      "Azerbaijan": "Азербайджан", "Georgia": "Грузия"
+      "Russia": "Россия", "Belarus": "Беларусь",
+      "Ukraine": "Украина", "Kazakhstan": "Казахстан"
   }
   selected = names.get(c_code, c_code)
   curr_info = COUNTRY_CURRENCIES.get(selected, {"code": "USD", "symbol": "USD"})
