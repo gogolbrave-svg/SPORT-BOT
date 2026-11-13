@@ -441,7 +441,7 @@ async def process_service(callback: CallbackQuery, state: FSMContext):
           [InlineKeyboardButton(text="⬅️ Назад", callback_data="start_order")],
       ]
   )
-  await callback.message.edit_text(f"🎯 Выбрано: <b>{service_name}</b> ({price}$)\n\nУкажите количество целей:", reply_markup=keyboard, parse_mode="HTML")
+  await callback.message.edit_text(f"🎯 Выбрано: <b>{service_name}</b> ({price}$)\n\nУкажите количество целей на адресе:", reply_markup=keyboard, parse_mode="HTML")
   await callback.answer()
 
 @router.callback_query(OrderForm.targets_count, F.data.startswith("targets_"))
@@ -483,7 +483,7 @@ async def process_country(callback: CallbackQuery, state: FSMContext):
   await state.set_state(OrderForm.location_and_target)
   await callback.message.edit_text(
       f"📍 Страна: <b>{selected}</b>\n\n"
-      f"📍 <b>Локация и данные цели:</b>\n"
+      f"🪪 <b>Локация и данные цели:</b>\n"
       f"Укажите точный адрес (город, улица, дом/квартира), а также ФИО или просто имя, данные цели (одним сообщением):",
       parse_mode="HTML"
   )
