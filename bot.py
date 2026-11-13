@@ -54,7 +54,6 @@ class SupportForm(StatesGroup):
 # Базы данных в памяти
 USER_ORDERS = {}
 KNOWN_USERS = {}
-PAYMENT_TIMERS = {}
 ABANDONED_CHECKOUTS = {}
 
 router = Router()
@@ -205,46 +204,6 @@ async def check_cryptobot_invoice_status(invoice_id: int) -> bool:
     logger.error(f"Ошибка проверки инвойса CryptoBot: {e}")
   return False
 
-# === ДИНАМИЧЕСКИЙ ТАЙМЕР ОПЛАТЫ ===
-async def run_payment_timer(bot: Bot, chat_id: int, message_id: int, base_text: str, keyboard_buttons_factory):
-  total_seconds = 20 * 60
-  task_key = (chat_id, message_id)
-  
-  try:
-    while total_seconds > 0:
-      mins, secs = divmod(total_seconds, 60)
-      timer_str = f"{mins:02d}:{secs:02d}"
-      
-      current_text = (
-          f"⏳ <b>Бронирование зафиксировано</b>\n"
-          f"Время на завершение оплаты: <b><u>{timer_str}</u></b>\n\n"
-          f"{base_text}"
-      )
-      keyboard = keyboard_buttons_factory()
-      
-      try:
-        await bot.edit_message_text(
-            chat_id=chat_id, message_id=message_id,
-            text=current_text, reply_markup=keyboard, parse_mode="HTML"
-        )
-      except Exception:
-        pass
-      
-      await asyncio.sleep(1)
-      total_seconds -= 1
-      
-    expired_text = "⌛ <b>Время бронирования истекло</b>\n\nСрок резерва по заказу завершился. Вы можете повторить оформление в каталоге."
-    expired_kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🛒 В каталог", callback_data="start_order")]])
-    try:
-      await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=expired_text, reply_markup=expired_kb, parse_mode="HTML")
-    except Exception:
-      pass
-      
-    if task_key in PAYMENT_TIMERS:
-      del PAYMENT_TIMERS[task_key]
-  except asyncio.CancelledError:
-    pass
-
 # === ФОНОВАЯ ЗАДАЧА АВТО-РАССЫЛКИ ===
 async def scheduled_broadcast(bot: Bot):
   while True:
@@ -356,10 +315,6 @@ async def cmd_reputation_msg(message: Message):
 @router.callback_query(F.data == "back_home")
 async def back_home(callback: CallbackQuery, state: FSMContext):
   user_id = callback.from_user.id
-  task_key = (callback.message.chat.id, callback.message.message_id)
-  if task_key in PAYMENT_TIMERS:
-    PAYMENT_TIMERS[task_key].cancel()
-    del PAYMENT_TIMERS[task_key]
   ABANDONED_CHECKOUTS.pop(user_id, None)
   await show_main_menu(callback, state, edit=True)
 
@@ -461,10 +416,6 @@ async def skip_support_photo(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data == "start_order")
 async def process_start_order(callback: CallbackQuery, state: FSMContext):
   user_id = callback.from_user.id
-  task_key = (callback.message.chat.id, callback.message.message_id)
-  if task_key in PAYMENT_TIMERS:
-    PAYMENT_TIMERS[task_key].cancel()
-    del PAYMENT_TIMERS[task_key]
   ABANDONED_CHECKOUTS.pop(user_id, None)
 
   await state.set_state(OrderForm.service)
@@ -631,8 +582,6 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data == "go_to_payment")
 async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   user_id = callback.from_user.id
-  chat_id = callback.message.chat.id
-  message_id = callback.message.message_id
   
   if user_id in ABANDONED_CHECKOUTS:
     ABANDONED_CHECKOUTS[user_id].cancel()
@@ -643,23 +592,24 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   rate = await get_exchange_rate(data.get("curr_code", "USD"))
   local_amount = round(total_price * rate)
 
-  base_text = f"💳 <b>Способ оплаты</b>\n\nСумма: <b>{total_price}$</b> <i>(≈ {local_amount:,} {data.get('curr_symbol')})</i>\n\nВыберите вариант:"
-
-  def get_payment_keyboard():
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="🤖 CryptoBot (без комиссий)", callback_data="pay_cryptobot")],
-            [InlineKeyboardButton(text="🪙 Криптовалюта (выбор сети)", callback_data="crypto_expert")],
-            [InlineKeyboardButton(text="💬 Нужна помощь", callback_data="payment_help_manager")]
-        ]
-    )
-
-  initial_text = f"⏳ <b>Бронирование зафиксировано</b>\nВремя на завершение оплаты: <b><u>20:00</u></b>\n\n{base_text}"
-  await callback.message.edit_text(initial_text, reply_markup=get_payment_keyboard(), parse_mode="HTML")
-  
-  PAYMENT_TIMERS[(chat_id, message_id)] = asyncio.create_task(
-      run_payment_timer(callback.bot, chat_id, message_id, base_text, get_payment_keyboard)
+  # Статичное сообщение без ежесекундных таймеров и подтормаживаний
+  payment_text = (
+      "⏳ <b>Бронирование зафиксировано</b>\n"
+      "Время на завершение оплаты: <b><u>20:00</u></b>\n\n"
+      f"💳 <b>Способ оплаты</b>\n\n"
+      f"Сумма: <b>{total_price}$</b> <i>(≈ {local_amount:,} {data.get('curr_symbol')})</i>\n\n"
+      "Выберите вариант:"
   )
+  
+  keyboard = InlineKeyboardMarkup(
+      inline_keyboard=[
+          [InlineKeyboardButton(text="🤖 CryptoBot (без комиссий)", callback_data="pay_cryptobot")],
+          [InlineKeyboardButton(text="🪙 Криптовалюта (выбор сети)", callback_data="crypto_expert")],
+          [InlineKeyboardButton(text="💬 Нужна помощь", callback_data="payment_help_manager")]
+      ]
+  )
+
+  await callback.message.edit_text(payment_text, reply_markup=keyboard, parse_mode="HTML")
   await callback.answer()
 
 @router.callback_query(F.data == "cryptobot_guide")
