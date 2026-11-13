@@ -128,14 +128,14 @@ async def show_main_menu(event: Message | CallbackQuery, state: FSMContext, edit
 
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
-          [InlineKeyboardButton(text="🔴 Заказать", callback_data="start_order")],
+          [InlineKeyboardButton(text="🛒 Заказать", callback_data="start_order")],
           [
-              InlineKeyboardButton(text="⚪ Мои заказы", callback_data="my_orders"),
-              InlineKeyboardButton(text="⚪ Репутация магазина", callback_data="reputation"),
+              InlineKeyboardButton(text="📦 Мои заказы", callback_data="my_orders"),
+              InlineKeyboardButton(text="📊 Репутация магазина", callback_data="reputation"),
           ],
           [
-              InlineKeyboardButton(text="🔴 Поддержка", callback_data="contact_admin"),
-              InlineKeyboardButton(text="⚪ Вакансии", callback_data="start_vacancy"),
+              InlineKeyboardButton(text="💬 Поддержка", callback_data="contact_admin"),
+              InlineKeyboardButton(text="💼 Вакансии", callback_data="start_vacancy"),
           ],
       ]
   )
@@ -234,7 +234,7 @@ async def run_payment_timer(bot: Bot, chat_id: int, message_id: int, base_text: 
       total_seconds -= 1
       
     expired_text = "⌛ <b>Время бронирования истекло</b>\n\nСрок резерва по заказу завершился. Вы можете повторить оформление в каталоге."
-    expired_kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔴 В каталог", callback_data="start_order")]])
+    expired_kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🛒 В каталог", callback_data="start_order")]])
     try:
       await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=expired_text, reply_markup=expired_kb, parse_mode="HTML")
     except Exception:
@@ -282,8 +282,8 @@ async def delayed_abandoned_cart_reminder(bot: Bot, user_id: int):
           "Вернуться к оформлению можно в один клик 👇"
       )
       keyboard = InlineKeyboardMarkup(inline_keyboard=[
-          [InlineKeyboardButton(text="🔴 Вернуться к заказу", callback_data="start_order")],
-          [InlineKeyboardButton(text="🔴 Написать в поддержку", callback_data="contact_admin")]
+          [InlineKeyboardButton(text="🛒 Вернуться к заказу", callback_data="start_order")],
+          [InlineKeyboardButton(text="💬 Написать в поддержку", callback_data="contact_admin")]
       ])
       await bot.send_message(chat_id=user_id, text=reminder_text, reply_markup=keyboard, parse_mode="HTML")
       ABANDONED_CHECKOUTS.pop(user_id, None)
@@ -729,10 +729,10 @@ async def process_cryptobot_check(callback: CallbackQuery, state: FSMContext):
 async def process_crypto_expert(callback: CallbackQuery, state: FSMContext):
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
-          [InlineKeyboardButton(text="🔴 USDT (TRC-20)", callback_data="pay_crypto_trc20")],
-          [InlineKeyboardButton(text="🟢 USDT (BEP-20)", callback_data="pay_crypto_bep20")],
-          [InlineKeyboardButton(text="🔵 TON", callback_data="pay_crypto_ton")],
-          [InlineKeyboardButton(text="🟠 Bitcoin (BTC)", callback_data="pay_crypto_btc")],
+          [InlineKeyboardButton(text="💎 USDT (TRC-20)", callback_data="pay_crypto_trc20")],
+          [InlineKeyboardButton(text="💵 USDT (BEP-20)", callback_data="pay_crypto_bep20")],
+          [InlineKeyboardButton(text="🪙 TON", callback_data="pay_crypto_ton")],
+          [InlineKeyboardButton(text="🪙 Bitcoin (BTC)", callback_data="pay_crypto_btc")],
           [InlineKeyboardButton(text="⬅️ Назад", callback_data="go_to_payment")],
       ]
   )
@@ -915,10 +915,10 @@ async def process_vpay_check(callback: CallbackQuery, state: FSMContext):
 async def process_vpay_crypto_expert(callback: CallbackQuery):
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
-          [InlineKeyboardButton(text="🔴 USDT (TRC-20)", callback_data="vpay_crypto_trc20")],
-          [InlineKeyboardButton(text="🟢 USDT (BEP-20)", callback_data="vpay_crypto_bep20")],
-          [InlineKeyboardButton(text="🔵 TON", callback_data="vpay_crypto_ton")],
-          [InlineKeyboardButton(text="🟠 Bitcoin (BTC)", callback_data="vpay_crypto_btc")],
+          [InlineKeyboardButton(text="💎 USDT (TRC-20)", callback_data="vpay_crypto_trc20")],
+          [InlineKeyboardButton(text="💵 USDT (BEP-20)", callback_data="vpay_crypto_bep20")],
+          [InlineKeyboardButton(text="🪙 TON", callback_data="vpay_crypto_ton")],
+          [InlineKeyboardButton(text="🪙 Bitcoin (BTC)", callback_data="vpay_crypto_btc")],
           [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_home")],
       ]
   )
