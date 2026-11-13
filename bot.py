@@ -3,6 +3,7 @@ import datetime
 import logging
 import os
 import random
+import sqlite3
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
@@ -55,7 +56,8 @@ class SupportForm(StatesGroup):
 USER_ORDERS = {}
 KNOWN_USERS = {}
 ABANDONED_CHECKOUTS = {}
-CARD_DETAILS = []  # Список реквизитов карт/телефонов
+CARD_DETAILS = []      # Список реквизитов карт/телефонов
+CARD_POINTERS = {}     # Индексы для циклического чередования реквизитов по странам
 
 router = Router()
 
@@ -91,19 +93,34 @@ CRYPTO_NETWORKS = {
     },
 }
 
-# === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ДЛЯ КАРТ ===
-def get_active_cards(country: str):
+# === ФУНКЦИЯ ЧЕРЕДОВАНИЯ РЕКВИЗИТОВ (ROUND-ROBIN) ПО КРУГУ ===
+def get_next_card(country: str):
   now = datetime.datetime.now()
+  # Фильтруем активные (не замороженные) реквизиты для выбранной страны
   active = []
   for card in CARD_DETAILS:
     if card["country"].lower() == country.lower():
-      # Проверка фриза
       if card["frozen_until"] and card["frozen_until"] > now:
-        continue  # Заморожен
+        continue
       elif card["frozen_until"] and card["frozen_until"] <= now:
-        card["frozen_until"] = None  # Автоматическая разморозка
+        card["frozen_until"] = None
       active.append(card)
-  return active
+
+  if not active:
+    return None
+
+  # Инициализируем указатель для страны, если его еще нет
+  if country not in CARD_POINTERS:
+    CARD_POINTERS[country] = 0
+
+  # Берем реквизит по текущему указателю
+  index = CARD_POINTERS[country] % len(active)
+  chosen_card = active[index]
+
+  # Сдвигаем указатель на следующий элемент для следующего клиента (по кругу)
+  CARD_POINTERS[country] = (index + 1) % len(active)
+
+  return chosen_card
 
 # === ФУНКЦИЯ ПОЛУЧЕНИЯ КУРСОВ ВАЛЮТ ===
 async def get_exchange_rate(target_currency: str) -> float:
@@ -191,7 +208,6 @@ async def cmd_add_card(message: Message):
     await message.reply(f"❌ Неверная страна. Доступные: {', '.join(valid_countries)}")
     return
 
-  # Проверка на дубликаты
   for card in CARD_DETAILS:
     if card["details"] == details and card["bank"] == bank and card["country"] == country:
       await message.reply("⚠️ Такие реквизиты уже существуют в базе.")
@@ -216,7 +232,7 @@ async def cmd_delete_card(message: Message):
   if ADMIN_ID and message.from_user.id != ADMIN_ID:
     return
     
-  global CARD_DETAILS  # Сначала объявляем global, ДО любых использований переменной
+  global CARD_DETAILS  
   
   args = message.text.split(maxsplit=1)
   if len(args) < 2:
@@ -737,7 +753,7 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   await callback.message.edit_text(payment_text, reply_markup=keyboard, parse_mode="HTML")
   await callback.answer()
 
-# === ОБРАБОТКА ОПЛАТЫ КАРТОЙ / СБП / КАСПИ ===
+# === ОБРАБОТКА ОПЛАТЫ КАРТОЙ / СБП / КАСПИ (С ЧЕРЕДОВАНИЕМ ПО КРУГУ) ===
 @router.callback_query(F.data == "pay_card_option")
 async def process_pay_card_option(callback: CallbackQuery, state: FSMContext):
   data = await state.get_data()
@@ -746,10 +762,10 @@ async def process_pay_card_option(callback: CallbackQuery, state: FSMContext):
   rate = await get_exchange_rate(data.get("curr_code", "USD"))
   local_amount = round(total_price * rate)
 
-  active_cards = get_active_cards(country)
+  # Получаем следующий по очереди реквизит для страны (по кругу)
+  card = get_next_card(country)
 
-  if not active_cards:
-    # Динамическое описание способа оплаты для конкретной страны
+  if not card:
     if country == "Россия":
       payment_type_desc = "картой/СБП"
     elif country == "Казахстан":
@@ -773,10 +789,6 @@ async def process_pay_card_option(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
     return
 
-  cards_text = ""
-  for idx, c in enumerate(active_cards, 1):
-    cards_text += f"<b>{idx}. Банк:</b> {c['bank']}\n<b>Реквизиты:</b> <code>{c['details']}</code>\n\n"
-
   header_map = {
       "Россия": "Оплата по СБП",
       "Казахстан": "Оплата на Kaspi",
@@ -788,8 +800,9 @@ async def process_pay_card_option(callback: CallbackQuery, state: FSMContext):
   text = (
       f"💳 <b>{header_title} ({country})</b>\n\n"
       f"• Сумма к оплате: <b>{total_price}$</b> <i>(≈ {local_amount:,} {data.get('curr_symbol')})</i>\n\n"
-      f"⚠️ <b>Внимание!</b> Перевод осуществлять <b>строго</b> на указанный ниже банк и реквизиты:\n\n"
-      f"{cards_text}"
+      f"⚠️ <b>Внимание!</b> Перевод осуществлять <b>строго</b> на указанные реквизиты:\n\n"
+      f"<b>Банк:</b> {card['bank']}\n"
+      f"<b>Реквизиты:</b> <code>{card['details']}</code>\n\n"
       "💡 <i>После перевода средств нажмите кнопку ниже, чтобы прикрепить чек.</i>"
   )
   keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -1121,7 +1134,6 @@ async def main():
   dp = Dispatcher()
   dp.include_router(router)
   
-  # Установка команд бота для меню Telegram
   await bot.set_my_commands([
       BotCommand(command="start", description="Главное меню"),
       BotCommand(command="order", description="Заказать"),
