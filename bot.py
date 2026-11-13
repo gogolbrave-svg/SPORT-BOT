@@ -223,16 +223,15 @@ async def scheduled_broadcast(bot: Bot):
 
 async def delayed_abandoned_cart_reminder(bot: Bot, user_id: int):
   try:
-    await asyncio.sleep(1800)
+    await asyncio.sleep(1800)  # Ровно 30 минут
     if user_id in ABANDONED_CHECKOUTS:
       reminder_text = (
-          "👋 <b>Завершить оформление?</b>\n\n"
-          "Мы заметили, что вы остановились на шаге оплаты. Если у вас возникли вопросы по переводу или деталей заказа — наша поддержка всегда на связи.\n\n"
-          "Вернуться к оформлению можно в один клик 👇"
+          "👋 <b>Завершить заказ со скидкой -20%?</b>\n\n"
+          "Мы заметили, что вы остановились на этапе оплаты. Возвращайтесь к оформлению первого заказа со скидкой <b>-20%</b> или обратитесь в поддержку, если возникли вопросы 👇"
       )
       keyboard = InlineKeyboardMarkup(inline_keyboard=[
-          [InlineKeyboardButton(text="🛒 Вернуться к заказу", callback_data="start_order")],
-          [InlineKeyboardButton(text="💬 Написать в поддержку", callback_data="contact_admin")]
+          [InlineKeyboardButton(text="🛒 Вернуться к заказу (-20%)", callback_data="start_order")],
+          [InlineKeyboardButton(text="💬 Обратиться в поддержку", callback_data="contact_admin")]
       ])
       await bot.send_message(chat_id=user_id, text=reminder_text, reply_markup=keyboard, parse_mode="HTML")
       ABANDONED_CHECKOUTS.pop(user_id, None)
@@ -304,7 +303,9 @@ async def cmd_reputation_msg(message: Message):
 @router.callback_query(F.data == "back_home")
 async def back_home(callback: CallbackQuery, state: FSMContext):
   user_id = callback.from_user.id
-  ABANDONED_CHECKOUTS.pop(user_id, None)
+  task = ABANDONED_CHECKOUTS.pop(user_id, None)
+  if task:
+    task.cancel()
   await show_main_menu(callback, state, edit=True)
 
 @router.callback_query(F.data == "reputation")
@@ -405,7 +406,9 @@ async def skip_support_photo(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data == "start_order")
 async def process_start_order(callback: CallbackQuery, state: FSMContext):
   user_id = callback.from_user.id
-  ABANDONED_CHECKOUTS.pop(user_id, None)
+  task = ABANDONED_CHECKOUTS.pop(user_id, None)
+  if task:
+    task.cancel()
 
   await state.set_state(OrderForm.service)
   keyboard = InlineKeyboardMarkup(
@@ -536,7 +539,9 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   user_id = callback.from_user.id
   
   if user_id in ABANDONED_CHECKOUTS:
-    ABANDONED_CHECKOUTS[user_id].cancel()
+    task = ABANDONED_CHECKOUTS.pop(user_id, None)
+    if task:
+      task.cancel()
   ABANDONED_CHECKOUTS[user_id] = asyncio.create_task(delayed_abandoned_cart_reminder(callback.bot, user_id))
 
   data = await state.get_data()
@@ -612,6 +617,10 @@ async def process_cryptobot_check(callback: CallbackQuery, state: FSMContext):
     return
 
   user = callback.from_user
+  task = ABANDONED_CHECKOUTS.pop(user.id, None)
+  if task:
+    task.cancel()
+
   if user.id not in USER_ORDERS:
     USER_ORDERS[user.id] = []
   USER_ORDERS[user.id].append({"service_name": data.get("service_name"), "total_price": data.get("total_price"), "status": "✅ Оплачено через CryptoBot"})
@@ -675,7 +684,9 @@ async def ask_for_receipt(callback: CallbackQuery, state: FSMContext):
 @router.message(OrderForm.receipt, F.photo)
 async def process_receipt_photo(message: Message, state: FSMContext):
   user = message.from_user
-  ABANDONED_CHECKOUTS.pop(user.id, None)
+  task = ABANDONED_CHECKOUTS.pop(user.id, None)
+  if task:
+    task.cancel()
   data = await state.get_data()
 
   if user.id not in USER_ORDERS:
