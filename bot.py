@@ -433,11 +433,11 @@ async def process_service(callback: CallbackQuery, state: FSMContext):
 
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
-          [InlineKeyboardButton(text="1 цель", callback_data="targets_1_0")],
-          [InlineKeyboardButton(text="2 цели (+50$)", callback_data="targets_2_50")],
-          [InlineKeyboardButton(text="3 цели (+100$)", callback_data="targets_3_100")],
-          [InlineKeyboardButton(text="4 цели (+150$)", callback_data="targets_4_150")],
-          [InlineKeyboardButton(text="5 целей (+200$)", callback_data="targets_5_200")],
+          [InlineKeyboardButton(text="🙋‍♂️ 1 цель", callback_data="targets_1_0")],
+          [InlineKeyboardButton(text="👥 2 цели (+50$)", callback_data="targets_2_50")],
+          [InlineKeyboardButton(text="🧑‍🧒‍🧒 3 цели (+100$)", callback_data="targets_3_100")],
+          [InlineKeyboardButton(text="🧑‍🧑‍🧒‍🧒 4 цели (+150$)", callback_data="targets_4_150")],
+          [InlineKeyboardButton(text="🏟️ 5 целей (+200$)", callback_data="targets_5_200")],
           [InlineKeyboardButton(text="⬅️ Назад", callback_data="start_order")],
       ]
   )
