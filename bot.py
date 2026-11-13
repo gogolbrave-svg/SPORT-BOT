@@ -130,19 +130,19 @@ async def show_main_menu(event: Message | CallbackQuery, state: FSMContext, edit
       inline_keyboard=[
           [InlineKeyboardButton(text="🛒 Заказать", callback_data="start_order")],
           [
-              InlineKeyboardButton(text="📦 Мои заказы", callback_data="my_orders"),
+              InlineKeyboardButton(text="📦 В работе", callback_data="my_orders"),
               InlineKeyboardButton(text="📊 Репутация", callback_data="reputation"),
           ],
           [
               InlineKeyboardButton(text="💬 Поддержка", callback_data="contact_admin"),
-              InlineKeyboardButton(text="💼 Вакансии", callback_data="start_vacancy"),
           ],
       ]
   )
   text = (
       "🏆 <b>ARENA SHOP — СПОРТ УСЛУГИ</b>\n\n"
-      "Добро пожаловать!\n\n"
-      "Выберите нужный раздел. Если возникнут вопросы — наша поддержка поможет разобраться."
+      "Здесь вы можете поквитаться с должниками, отомстить обидчикам и заказать правосудие. "
+      "Все конфиденциально и главное — безопасно. Работаем 24/7.\n\n"
+      "Да прибудет АРЕНА!"
   )
   
   if isinstance(event, CallbackQuery):
@@ -323,7 +323,7 @@ async def cmd_my_orders_msg(message: Message):
   orders = USER_ORDERS.get(user_id, [])
 
   if not orders:
-    text = "📦 <b>Мои заказы</b>\n\nУ вас пока нет активных или завершенных заказов."
+    text = "📦 <b>В работе</b>\n\nУ вас пока нет активных или завершенных заказов."
   else:
     text = "📦 <b>История ваших заказов:</b>\n\n"
     for idx, ord_data in enumerate(orders, 1):
@@ -391,7 +391,7 @@ async def show_my_orders(callback: CallbackQuery):
   orders = USER_ORDERS.get(user_id, [])
 
   if not orders:
-    text = "📦 <b>Мои заказы</b>\n\nУ вас пока нет активных или завершенных заказов."
+    text = "📦 <b>В работе</b>\n\nУ вас пока нет активных или завершенных заказов."
   else:
     text = "📦 <b>История ваших заказов:</b>\n\n"
     for idx, ord_data in enumerate(orders, 1):
@@ -525,7 +525,6 @@ async def process_targets_count(callback: CallbackQuery, state: FSMContext):
       ("🇬🇪 Грузия", "country_Georgia")
   ]
   
-  # Компактный список в две колонки
   kb_rows = []
   for i in range(0, len(countries), 2):
     row = [InlineKeyboardButton(text=countries[i][0], callback_data=countries[i][1])]
@@ -987,7 +986,7 @@ async def main():
   await bot.set_my_commands([
       BotCommand(command="start", description="Главное меню"),
       BotCommand(command="order", description="Заказать"),
-      BotCommand(command="my_orders", description="Мои заказы"),
+      BotCommand(command="my_orders", description="В работе"),
       BotCommand(command="reputation", description="Репутация"),
   ])
   
@@ -998,4 +997,3 @@ async def main():
 
 if __name__ == "__main__":
   asyncio.run(main())
- 
