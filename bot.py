@@ -215,6 +215,9 @@ async def cmd_add_card(message: Message):
 async def cmd_delete_card(message: Message):
   if ADMIN_ID and message.from_user.id != ADMIN_ID:
     return
+    
+  global CARD_DETAILS  # Сначала объявляем global, ДО любых использований переменной
+  
   args = message.text.split(maxsplit=1)
   if len(args) < 2:
     await message.reply("❌ Использование: `/delete <реквизиты> <Банк> <Страна>`", parse_mode="Markdown")
@@ -230,7 +233,6 @@ async def cmd_delete_card(message: Message):
   details = " ".join(parts[:-2])
 
   initial_len = len(CARD_DETAILS)
-  global CARD_DETAILS
   CARD_DETAILS = [
       c for c in CARD_DETAILS 
       if not (c["details"] == details and c["bank"] == bank and c["country"].lower() == country.lower())
