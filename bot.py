@@ -749,9 +749,17 @@ async def process_pay_card_option(callback: CallbackQuery, state: FSMContext):
   active_cards = get_active_cards(country)
 
   if not active_cards:
+    # Динамическое описание способа оплаты для конкретной страны
+    if country == "Россия":
+      payment_type_desc = "картой/СБП"
+    elif country == "Казахстан":
+      payment_type_desc = "Kaspi / по номеру"
+    else:
+      payment_type_desc = "картой"
+
     text = (
         f"❌ <b>Реквизиты временно недоступны</b>\n\n"
-        f"К сожалению, в данный момент реквизиты для оплаты картой/СБП для страны <b>{country}</b> недоступны.\n\n"
+        f"К сожалению, в данный момент реквизиты для оплаты ({payment_type_desc}) для страны <b>{country}</b> недоступны.\n\n"
         "Мы уже решаем эту проблему. Пожалуйста, оплатите через <b>CryptoBot</b> или реквизиты криптовалюты 👇"
     )
     keyboard = InlineKeyboardMarkup(
@@ -769,8 +777,16 @@ async def process_pay_card_option(callback: CallbackQuery, state: FSMContext):
   for idx, c in enumerate(active_cards, 1):
     cards_text += f"<b>{idx}. Банк:</b> {c['bank']}\n<b>Реквизиты:</b> <code>{c['details']}</code>\n\n"
 
+  header_map = {
+      "Россия": "Оплата по СБП",
+      "Казахстан": "Оплата на Kaspi",
+      "Украина": "Оплата по реквизитам карты",
+      "Беларусь": "Оплата по реквизитам карты"
+  }
+  header_title = header_map.get(country, "Оплата по реквизитам")
+
   text = (
-      f"💳 <b>Оплата по реквизитам ({country})</b>\n\n"
+      f"💳 <b>{header_title} ({country})</b>\n\n"
       f"• Сумма к оплате: <b>{total_price}$</b> <i>(≈ {local_amount:,} {data.get('curr_symbol')})</i>\n\n"
       f"⚠️ <b>Внимание!</b> Перевод осуществлять <b>строго</b> на указанный ниже банк и реквизиты:\n\n"
       f"{cards_text}"
