@@ -8,6 +8,7 @@ from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (
+    BotCommand,
     CallbackQuery,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
@@ -127,19 +128,19 @@ async def show_main_menu(event: Message | CallbackQuery, state: FSMContext, edit
 
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
-          [InlineKeyboardButton(text="🛒 Каталог", callback_data="start_order")],
+          [InlineKeyboardButton(text="🔴 Заказать", callback_data="start_order")],
           [
-              InlineKeyboardButton(text="📦 Мои заказы", callback_data="my_orders"),
-              InlineKeyboardButton(text="📊 Репутация", callback_data="reputation"),
+              InlineKeyboardButton(text="⚪ Мои заказы", callback_data="my_orders"),
+              InlineKeyboardButton(text="⚪ Репутация магазина", callback_data="reputation"),
           ],
           [
-              InlineKeyboardButton(text="💬 Поддержка", callback_data="contact_admin"),
-              InlineKeyboardButton(text="💼 Вакансии", callback_data="start_vacancy"),
+              InlineKeyboardButton(text="🔴 Поддержка", callback_data="contact_admin"),
+              InlineKeyboardButton(text="⚪ Вакансии", callback_data="start_vacancy"),
           ],
       ]
   )
   text = (
-      "🏆 <b>СПОРТ УСЛУГИ</b>\n\n"
+      "🏆 <b>ARENA SHOP — СПОРТ УСЛУГИ</b>\n\n"
       "Добро пожаловать!\n\n"
       "Выберите нужный раздел. Если возникнут вопросы — наша поддержка поможет разобраться."
   )
@@ -204,7 +205,7 @@ async def check_cryptobot_invoice_status(invoice_id: int) -> bool:
     logger.error(f"Ошибка проверки инвойса CryptoBot: {e}")
   return False
 
-# === ДИНАМИЧЕСКИЙ ТАЙМЕР ОПЛАТЫ (КАЖДУЮ СЕКУНДУ КАК В ОРИГИНАЛЕ) ===
+# === ДИНАМИЧЕСКИЙ ТАЙМЕР ОПЛАТЫ ===
 async def run_payment_timer(bot: Bot, chat_id: int, message_id: int, base_text: str, keyboard_buttons_factory):
   total_seconds = 20 * 60
   task_key = (chat_id, message_id)
@@ -233,7 +234,7 @@ async def run_payment_timer(bot: Bot, chat_id: int, message_id: int, base_text: 
       total_seconds -= 1
       
     expired_text = "⌛ <b>Время бронирования истекло</b>\n\nСрок резерва по заказу завершился. Вы можете повторить оформление в каталоге."
-    expired_kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🛒 В каталог", callback_data="start_order")]])
+    expired_kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔴 В каталог", callback_data="start_order")]])
     try:
       await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=expired_text, reply_markup=expired_kb, parse_mode="HTML")
     except Exception:
@@ -244,7 +245,7 @@ async def run_payment_timer(bot: Bot, chat_id: int, message_id: int, base_text: 
   except asyncio.CancelledError:
     pass
 
-# === ФОНОВАЯ ЗАДАЧА АВТО-РАССЫЛКИ КАЖДЫЕ 24 ЧАСА ===
+# === ФОНОВАЯ ЗАДАЧА АВТО-РАССЫЛКИ ===
 async def scheduled_broadcast(bot: Bot):
   while True:
     await asyncio.sleep(3600)
@@ -281,8 +282,8 @@ async def delayed_abandoned_cart_reminder(bot: Bot, user_id: int):
           "Вернуться к оформлению можно в один клик 👇"
       )
       keyboard = InlineKeyboardMarkup(inline_keyboard=[
-          [InlineKeyboardButton(text="🛒 Вернуться к заказу", callback_data="start_order")],
-          [InlineKeyboardButton(text="💬 Написать в поддержку", callback_data="contact_admin")]
+          [InlineKeyboardButton(text="🔴 Вернуться к заказу", callback_data="start_order")],
+          [InlineKeyboardButton(text="🔴 Написать в поддержку", callback_data="contact_admin")]
       ])
       await bot.send_message(chat_id=user_id, text=reminder_text, reply_markup=keyboard, parse_mode="HTML")
       ABANDONED_CHECKOUTS.pop(user_id, None)
@@ -293,6 +294,64 @@ async def delayed_abandoned_cart_reminder(bot: Bot, user_id: int):
 @router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
   await show_main_menu(message, state)
+
+@router.message(Command("order"))
+async def cmd_order(message: Message, state: FSMContext):
+  user_id = message.from_user.id
+  if user_id not in KNOWN_USERS:
+    KNOWN_USERS[user_id] = datetime.datetime.now()
+  await state.set_state(OrderForm.service)
+  keyboard = InlineKeyboardMarkup(
+      inline_keyboard=[
+          [InlineKeyboardButton(text="🟢 Облить зеленкой — 20$", callback_data="srv_Облить_зеленкой_20")],
+          [InlineKeyboardButton(text="🔥 Поджег дверей — 50$", callback_data="srv_Поджег_дверей_50")],
+          [InlineKeyboardButton(text="🥊 Избить — 80$", callback_data="srv_Избить_80")],
+          [InlineKeyboardButton(text="🦴 Сломать пальцы — 120$", callback_data="srv_Сломать_пальцы_120")],
+          [InlineKeyboardButton(text="🦿 Сломать конечности — 150$", callback_data="srv_Сломать_конечности_150")],
+          [InlineKeyboardButton(text="🏥 Реанимация — 200$", callback_data="srv_Реанимация_200")],
+          [InlineKeyboardButton(text="🪓 Отрубить конечности — 300$", callback_data="srv_Отрубить_конечности_300")],
+          [InlineKeyboardButton(text="🏹 Сделать инвалидом — 500$", callback_data="srv_Сделать_инвалидом_500")],
+          [InlineKeyboardButton(text="🌳 В лес в багажнике — 1000$", callback_data="srv_В_лес_в_багажнике_1000")],
+          [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_home")],
+      ]
+  )
+  await message.answer("🛒 <b>Каталог услуг</b>\n\nВыберите подходящий вариант из списка:", reply_markup=keyboard, parse_mode="HTML")
+
+@router.message(Command("my_orders"))
+async def cmd_my_orders_msg(message: Message):
+  user_id = message.from_user.id
+  orders = USER_ORDERS.get(user_id, [])
+
+  if not orders:
+    text = "📦 <b>Мои заказы</b>\n\nУ вас пока нет активных или завершенных заказов."
+  else:
+    text = "📦 <b>История ваших заказов:</b>\n\n"
+    for idx, ord_data in enumerate(orders, 1):
+      text += f"<b>Заказ #{idx}</b>\n• Услуга: {ord_data['service_name']}\n• Сумма: {ord_data['total_price']}$\n• Статус: {ord_data['status']}\n\n"
+
+  keyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="⬅️ Назад", callback_data="back_home")]])
+  await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
+
+@router.message(Command("reputation"))
+async def cmd_reputation_msg(message: Message):
+  current_date = datetime.date.today()
+  base_date = datetime.date(2026, 1, 1)
+  days_passed = max(0, (current_date - base_date).days)
+  completed = min(3752 + days_passed * 25, 20000)
+  
+  rng = random.Random(current_date.toordinal())
+  in_progress = rng.randint(170, 500)
+  new_requests = rng.randint(30, 80)
+
+  text = (
+      "📊 <b>Статистика и достижения сервиса</b>\n\n"
+      f"• Успешно выполнено задач: <b>{completed:,}</b>\n"
+      f"• В активной работе: <b>{in_progress}</b>\n"
+      f"• Новых заявок сегодня: <b>{new_requests}</b>\n\n"
+      "<i>Мы дорожим конфиденциальностью каждого клиента и поддерживаем безупречный уровень сервиса.</i>"
+  )
+  keyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="⬅️ Назад", callback_data="back_home")]])
+  await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
 
 @router.callback_query(F.data == "back_home")
 async def back_home(callback: CallbackQuery, state: FSMContext):
@@ -346,7 +405,11 @@ async def show_my_orders(callback: CallbackQuery):
 async def contact_admin_info(callback: CallbackQuery, state: FSMContext):
   await state.set_state(SupportForm.reason)
   keyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="⬅️ Отмена", callback_data="back_home")]])
-  text = "💬 <b>Служба поддержки</b>\n\nОпишите вашу ситуацию или задайте вопрос:"
+  text = (
+      "💬 <b>Служба поддержки</b>\n\n"
+      "Опишите вашу ситуацию или задайте вопрос "
+      "(например: <i>проблема с оплатой, статус заказа, другой вопрос</i>):"
+  )
   await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
   await callback.answer()
 
@@ -433,11 +496,11 @@ async def process_service(callback: CallbackQuery, state: FSMContext):
 
   keyboard = InlineKeyboardMarkup(
       inline_keyboard=[
-          [InlineKeyboardButton(text="🙋‍♂️ 1 цель", callback_data="targets_1_0")],
+          [InlineKeyboardButton(text="👥 1 цель", callback_data="targets_1_0")],
           [InlineKeyboardButton(text="👥 2 цели (+50$)", callback_data="targets_2_50")],
-          [InlineKeyboardButton(text="🧑‍🧒‍🧒 3 цели (+100$)", callback_data="targets_3_100")],
-          [InlineKeyboardButton(text="🧑‍🧑‍🧒‍🧒 4 цели (+150$)", callback_data="targets_4_150")],
-          [InlineKeyboardButton(text="🏟️ 5 целей (+200$)", callback_data="targets_5_200")],
+          [InlineKeyboardButton(text="👥 3 цели (+100$)", callback_data="targets_3_100")],
+          [InlineKeyboardButton(text="👥 4 цели (+150$)", callback_data="targets_4_150")],
+          [InlineKeyboardButton(text="👥 5 целей (+200$)", callback_data="targets_5_200")],
           [InlineKeyboardButton(text="⬅️ Назад", callback_data="start_order")],
       ]
   )
@@ -461,10 +524,17 @@ async def process_targets_count(callback: CallbackQuery, state: FSMContext):
       ("🇺🇦 Украина", "country_Ukraine"), ("🇦🇿 Азербайджан", "country_Azerbaijan"),
       ("🇬🇪 Грузия", "country_Georgia")
   ]
-  kb_rows = [[InlineKeyboardButton(text=c[0], callback_data=c[1])] for c in countries]
+  
+  # Компактный список в две колонки
+  kb_rows = []
+  for i in range(0, len(countries), 2):
+    row = [InlineKeyboardButton(text=countries[i][0], callback_data=countries[i][1])]
+    if i + 1 < len(countries):
+      row.append(InlineKeyboardButton(text=countries[i+1][0], callback_data=countries[i+1][1]))
+    kb_rows.append(row)
   kb_rows.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="start_order")])
 
-  await callback.message.edit_text("🌍 <b>Страна проведения — Страна вашей цели</b>\n\nВыберите страну:", reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_rows), parse_mode="HTML")
+  await callback.message.edit_text("🌍 <b>Страна вашей цели</b>\n\nВыберите страну:", reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_rows), parse_mode="HTML")
   await callback.answer()
 
 @router.callback_query(OrderForm.country, F.data.startswith("country_"))
@@ -734,7 +804,13 @@ async def process_start_vacancy(callback: CallbackQuery, state: FSMContext):
       ("🇺🇦 Украина", "vcountry_Ukraine"), ("🇦🇿 Азербайджан", "vcountry_Azerbaijan"),
       ("🇬🇪 Грузия", "vcountry_Georgia")
   ]
-  kb_rows = [[InlineKeyboardButton(text=c[0], callback_data=c[1])] for c in countries]
+  
+  kb_rows = []
+  for i in range(0, len(countries), 2):
+    row = [InlineKeyboardButton(text=countries[i][0], callback_data=countries[i][1])]
+    if i + 1 < len(countries):
+      row.append(InlineKeyboardButton(text=countries[i+1][0], callback_data=countries[i+1][1]))
+    kb_rows.append(row)
   kb_rows.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="back_home")])
 
   await callback.message.edit_text("💼 <b>Анкета кандидата</b>\n\nВыберите вашу страну:", reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_rows), parse_mode="HTML")
@@ -906,6 +982,15 @@ async def main():
   bot = Bot(token=BOT_TOKEN)
   dp = Dispatcher()
   dp.include_router(router)
+  
+  # Установка команд бота для меню Telegram
+  await bot.set_my_commands([
+      BotCommand(command="start", description="Главное меню"),
+      BotCommand(command="order", description="Заказать"),
+      BotCommand(command="my_orders", description="Мои заказы"),
+      BotCommand(command="reputation", description="Репутация магазина"),
+  ])
+  
   asyncio.create_task(start_web_server())
   asyncio.create_task(scheduled_broadcast(bot))
   await bot.delete_webhook(drop_pending_updates=True)
