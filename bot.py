@@ -30,34 +30,26 @@ logger = logging.getLogger(__name__)
 admin_env = os.getenv("ADMIN_ID")
 ADMIN_ID = int(admin_env) if admin_env and admin_env.isdigit() else None
 
-
 class OrderForm(StatesGroup):
   service = State()
   targets_count = State()
-  addon = State()
   country = State()
   location_and_target = State()
   photos = State()
   task_and_urgency = State()
   receipt = State()
 
-
 class VacancyForm(StatesGroup):
   country = State()
-  city = State()
-  name = State()
-  age = State()
+  city_name_age = State()
   parameters = State()
   sports_exp = State()
-  experience = State()
   photo = State()
   receipt = State()
-
 
 class SupportForm(StatesGroup):
   reason = State()
   photo = State()
-
 
 # База данных в памяти для хранения заказов пользователей
 USER_ORDERS = {}
@@ -70,7 +62,6 @@ PAYMENT_TIMERS = {}
 ABANDONED_CHECKOUTS = {}
 
 router = Router()
-
 
 # === СЛОВАРЬ ВАЛЮТ ДЛЯ СТРАН ===
 COUNTRY_CURRENCIES = {
@@ -86,7 +77,6 @@ COUNTRY_CURRENCIES = {
     "Азербайджан": {"code": "AZN", "symbol": "AZN"},
     "Грузия": {"code": "GEL", "symbol": "GEL"},
 }
-
 
 # === ФУНКЦИЯ ПОЛУЧЕНИЯ РЕАЛЬНЫХ КУРСОВ ВАЛЮТ ===
 async def get_exchange_rate(target_currency: str) -> float:
@@ -118,7 +108,6 @@ async def get_exchange_rate(target_currency: str) -> float:
       "GEL": 2.7,
   }
   return fallback_rates.get(target_currency, 1.0)
-
 
 # === ФУНКЦИЯ ГЕНЕРАЦИИ ДИНАМИЧЕСКОЙ ДАТЫ ДЛЯ СКИДКИ ===
 def get_dynamic_discount_content():
@@ -170,7 +159,6 @@ def get_dynamic_discount_content():
   )
   return text, keyboard
 
-
 # === ФОНОВАЯ ЗАДАЧА АВТО-РАССЫЛКИ КАЖДЫЕ 24 ЧАСА ===
 async def scheduled_broadcast(bot: Bot):
   while True:
@@ -191,7 +179,6 @@ async def scheduled_broadcast(bot: Bot):
           logger.error(
               f"Не удалось отправить автосообщение пользователю {user_id}: {e}"
           )
-
 
 # === ФОНОВАЯ ЗАДАЧА ДОЖИМА ЛИДОВ ЧЕРЕЗ 30 МИНУТ ===
 async def delayed_abandoned_cart_reminder(bot: Bot, user_id: int):
@@ -216,7 +203,6 @@ async def delayed_abandoned_cart_reminder(bot: Bot, user_id: int):
     pass
   except Exception as e:
     logger.error(f"Ошибка отправки напоминания о дожиме для {user_id}: {e}")
-
 
 # === ФУНКЦИЯ ЖИВОГО ТАЙМЕРА ОБРАТНОГО ОТСЧЕТА (КАЖДУЮ СЕКУНДУ) ===
 async def run_payment_timer(bot: Bot, chat_id: int, message_id: int, base_text: str, keyboard_buttons_factory):
@@ -272,7 +258,6 @@ async def run_payment_timer(bot: Bot, chat_id: int, message_id: int, base_text: 
   except asyncio.CancelledError:
     pass
 
-
 # === ФУНКЦИЯ СОЗДАНИЯ ИНВОЙСА CRYPTOBOT ===
 async def create_cryptobot_invoice(amount_usd: float, description: str) -> str:
   if not CRYPTO_BOT_TOKEN:
@@ -300,7 +285,6 @@ async def create_cryptobot_invoice(amount_usd: float, description: str) -> str:
       await asyncio.sleep(1)
   return ""
 
-
 # === ФУНКЦИЯ ДЛЯ ГЕНЕРАЦИИ РЕПУТАЦИИ ===
 async def get_reputation_text_and_keyboard():
   current_date = datetime.date.today()
@@ -326,7 +310,6 @@ async def get_reputation_text_and_keyboard():
       ]
   )
   return text, keyboard
-
 
 # === 0. ГЛАВНОЕ МЕНЮ И КОМАНДЫ ===
 @router.message(CommandStart())
@@ -371,12 +354,10 @@ async def cmd_start(message: Message, state: FSMContext):
   )
   await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
 
-
 @router.message(Command("reputation"))
 async def cmd_reputation(message: Message):
   text, keyboard = await get_reputation_text_and_keyboard()
   await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
-
 
 @router.message(Command("my_orders"))
 async def cmd_my_orders(message: Message):
@@ -402,7 +383,6 @@ async def cmd_my_orders(message: Message):
       ]
   )
   await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
-
 
 @router.message(Command("order", "make_order"))
 async def cmd_order(message: Message, state: FSMContext):
@@ -470,18 +450,16 @@ async def cmd_order(message: Message, state: FSMContext):
       ]
   )
   await message.answer(
-      "<b>Шаг 1 из 6: Выбор услуги</b>\n\nВыберите нужную услугу:",
+      "<b>Шаг 1 из 5: Выбор услуги</b>\n\nВыберите нужную услугу:",
       reply_markup=keyboard,
       parse_mode="HTML",
   )
-
 
 @router.callback_query(F.data == "reputation")
 async def show_reputation(callback: CallbackQuery):
   text, keyboard = await get_reputation_text_and_keyboard()
   await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
   await callback.answer()
-
 
 @router.callback_query(F.data == "contact_admin")
 async def contact_admin_info(callback: CallbackQuery, state: FSMContext):
@@ -498,7 +476,6 @@ async def contact_admin_info(callback: CallbackQuery, state: FSMContext):
   )
   await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
   await callback.answer()
-
 
 @router.message(SupportForm.reason, F.text)
 async def process_support_reason(message: Message, state: FSMContext):
@@ -520,7 +497,6 @@ async def process_support_reason(message: Message, state: FSMContext):
       "📸 Отправьте скриншот или фотографию (например, если есть проблема с оплатой), либо нажмите кнопку ниже, чтобы пропустить:"
   )
   await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
-
 
 @router.message(SupportForm.photo, F.photo)
 async def process_support_photo(message: Message, state: FSMContext):
@@ -565,7 +541,6 @@ async def process_support_photo(message: Message, state: FSMContext):
   await message.answer(success_text, reply_markup=keyboard, parse_mode="HTML")
   await state.clear()
 
-
 @router.callback_query(SupportForm.photo, F.data == "skip_support_photo")
 async def skip_support_photo(callback: CallbackQuery, state: FSMContext):
   data = await state.get_data()
@@ -608,13 +583,11 @@ async def skip_support_photo(callback: CallbackQuery, state: FSMContext):
   await state.clear()
   await callback.answer()
 
-
 @router.message(SupportForm.photo, ~F.photo)
 async def process_support_photo_invalid(message: Message):
   await message.answer(
       "⚠️ Пожалуйста, отправьте именно <b>фотографию (картинкой)</b> или нажмите кнопку «Пропустить»!"
   )
-
 
 # === АДМИН-ПАНЕЛЬ: ОТВЕТ ПОЛЬЗОВАТЕЛЮ ЧЕРЕЗ REPLY ===
 @router.message(F.reply_to_message)
@@ -661,7 +634,6 @@ async def admin_reply_handler(message: Message):
   except Exception as e:
     await message.reply(f"❌ Ошибка отправки сообщения пользователю: {e}")
 
-
 @router.callback_query(F.data == "my_orders")
 async def show_my_orders(callback: CallbackQuery):
   user_id = callback.from_user.id
@@ -687,7 +659,6 @@ async def show_my_orders(callback: CallbackQuery):
   )
   await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
   await callback.answer()
-
 
 @router.callback_query(F.data == "back_home")
 async def back_home(callback: CallbackQuery, state: FSMContext):
@@ -734,7 +705,6 @@ async def back_home(callback: CallbackQuery, state: FSMContext):
   )
   await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
   await callback.answer()
-
 
 @router.callback_query(F.data == "start_order")
 async def process_start_order(callback: CallbackQuery, state: FSMContext):
@@ -808,12 +778,11 @@ async def process_start_order(callback: CallbackQuery, state: FSMContext):
       ]
   )
   await callback.message.edit_text(
-      "<b>Шаг 1 из 6: Выбор услуги</b>\n\nВыберите нужную услугу:",
+      "<b>Шаг 1 из 5: Выбор услуги</b>\n\nВыберите нужную услугу:",
       reply_markup=keyboard,
       parse_mode="HTML",
   )
   await callback.answer()
-
 
 @router.callback_query(OrderForm.service, F.data.startswith("srv_"))
 async def process_service(callback: CallbackQuery, state: FSMContext):
@@ -835,14 +804,13 @@ async def process_service(callback: CallbackQuery, state: FSMContext):
       ]
   )
   await callback.message.edit_text(
-      f"<b>Шаг 2 из 6: Количество целей на адресе</b>\n\n"
+      f"<b>Шаг 2 из 5: Количество целей на адресе</b>\n\n"
       f"Услуга: <b>{service_name}</b> ({price}$)\n\n"
       f"Выберите количество целей:",
       reply_markup=keyboard,
       parse_mode="HTML"
   )
   await callback.answer()
-
 
 @router.callback_query(OrderForm.targets_count, F.data.startswith("targets_"))
 async def process_targets_count(callback: CallbackQuery, state: FSMContext):
@@ -851,37 +819,6 @@ async def process_targets_count(callback: CallbackQuery, state: FSMContext):
   target_price = int(parts[2])
 
   await state.update_data(targets_count=count, target_price=target_price)
-  await state.set_state(OrderForm.addon)
-
-  keyboard = InlineKeyboardMarkup(
-      inline_keyboard=[
-          [
-              InlineKeyboardButton(
-                  text="📸 Фотоотчет (Бесплатно)", callback_data="addon_photo_0"
-              )
-          ],
-          [
-              InlineKeyboardButton(
-                  text="🎥 Видеотчет (+30$)", callback_data="addon_video_30"
-              )
-          ],
-      ]
-  )
-  await callback.message.edit_text(
-      f"<b>Шаг 3 из 6: Отчет</b>\n\nВыберите тип отчета:",
-      reply_markup=keyboard,
-      parse_mode="HTML",
-  )
-  await callback.answer()
-
-
-@router.callback_query(OrderForm.addon, F.data.startswith("addon_"))
-async def process_addon(callback: CallbackQuery, state: FSMContext):
-  parts = callback.data.split("_")
-  addon_price = int(parts[-1])
-  addon_type = "Видеотчет" if addon_price > 0 else "Фотоотчет"
-
-  await state.update_data(addon_type=addon_type, addon_price=addon_price)
   await state.set_state(OrderForm.country)
 
   keyboard = InlineKeyboardMarkup(
@@ -934,12 +871,11 @@ async def process_addon(callback: CallbackQuery, state: FSMContext):
       ]
   )
   await callback.message.edit_text(
-      "<b>Шаг 4 из 6: Выбор страны</b>\n\nВыберите страну из списка:",
+      "<b>Шаг 3 из 5: Выбор страны</b>\n\nВыберите страну из списка:",
       reply_markup=keyboard,
       parse_mode="HTML",
   )
   await callback.answer()
-
 
 @router.callback_query(OrderForm.country, F.data.startswith("country_"))
 async def process_country(callback: CallbackQuery, state: FSMContext):
@@ -970,13 +906,12 @@ async def process_country(callback: CallbackQuery, state: FSMContext):
 
   await state.set_state(OrderForm.location_and_target)
   prompt = (
-      f"<b>Шаг 5 из 6: Локация и данные цели ({selected})</b>\n\n"
+      f"<b>Шаг 4 из 5: Локация и данные цели ({selected})</b>\n\n"
       "✍️ Введите всю информацию <b>одним сообщением</b> в свободной форме:\n"
       "<i>Пример: Москва, ул. Ленина 5, кв. 10 (Иванов Иван Иванович, 1990 г.р.)</i>"
   )
   await callback.message.edit_text(prompt, parse_mode="HTML")
   await callback.answer()
-
 
 @router.message(OrderForm.location_and_target, F.text)
 async def process_location_and_target(message: Message, state: FSMContext):
@@ -992,11 +927,10 @@ async def process_location_and_target(message: Message, state: FSMContext):
       ]
   )
   photos_prompt = (
-      "<b>Шаг 6 из 6: Фотографии цели</b>\n\n📷 Отправьте фотографию цели (до 3 шт.). Как закончите,"
+      "<b>Шаг 5 из 5: Фотографии цели</b>\n\n📷 Отправьте фотографию цели (до 3 шт.). Как закончите,"
       " нажмите «Готово»:"
   )
   await message.answer(photos_prompt, reply_markup=keyboard, parse_mode="HTML")
-
 
 @router.message(OrderForm.photos, F.photo)
 async def process_photo(message: Message, state: FSMContext):
@@ -1027,7 +961,6 @@ async def process_photo(message: Message, state: FSMContext):
       f"📸 Фото #{len(photos)} загружено!", reply_markup=keyboard
   )
 
-
 @router.message(OrderForm.photos, ~F.photo)
 async def process_photo_invalid(message: Message, state: FSMContext):
   keyboard = InlineKeyboardMarkup(
@@ -1044,7 +977,6 @@ async def process_photo_invalid(message: Message, state: FSMContext):
       reply_markup=keyboard
   )
 
-
 @router.callback_query(OrderForm.photos, F.data == "finish_photos")
 async def finish_photos(callback: CallbackQuery, state: FSMContext):
   await state.set_state(OrderForm.task_and_urgency)
@@ -1054,7 +986,6 @@ async def finish_photos(callback: CallbackQuery, state: FSMContext):
       parse_mode="HTML",
   )
   await callback.answer()
-
 
 @router.message(OrderForm.task_and_urgency, F.text)
 async def process_task_and_urgency(message: Message, state: FSMContext):
@@ -1085,7 +1016,6 @@ async def process_task_and_urgency(message: Message, state: FSMContext):
       parse_mode="HTML",
   )
 
-
 @router.callback_query(F.data.startswith("urg_"))
 async def process_urgency(callback: CallbackQuery, state: FSMContext):
   parts = callback.data.split("_")
@@ -1104,9 +1034,8 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
   data = await state.get_data()
   service_price = data.get("service_price", 0)
   target_price = data.get("target_price", 0)
-  addon_price = data.get("addon_price", 0)
   total_price = (
-      service_price + target_price + addon_price + urg_price
+      service_price + target_price + urg_price
   )
 
   await state.update_data(total_price=total_price)
@@ -1128,7 +1057,6 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
       "📋 <b>Сводка заказа:</b>\n"
       f"• Услуга: <b>{data.get('service_name')}</b> ({service_price}$)\n"
       f"• Количество целей: <b>{data.get('targets_count')} шт.</b> (+{target_price}$)\n"
-      f"• Отчет: <b>{data.get('addon_type')}</b> ({addon_price}$)\n"
       f"• Срочность: <b>{urgency_display}</b>\n"
       f"• Страна: <b>{data.get('country')}</b>\n"
       f"• Локация и данные цели: <b>{data.get('location_and_target')}</b>\n"
@@ -1150,7 +1078,6 @@ async def process_urgency(callback: CallbackQuery, state: FSMContext):
       summary_text, reply_markup=keyboard, parse_mode="HTML"
   )
   await callback.answer()
-
 
 @router.callback_query(F.data == "go_to_payment")
 async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
@@ -1220,7 +1147,6 @@ async def process_go_to_payment(callback: CallbackQuery, state: FSMContext):
   
   await callback.answer()
 
-
 @router.callback_query(F.data == "payment_help_manager")
 async def process_payment_help_manager(callback: CallbackQuery):
   user = callback.from_user
@@ -1248,7 +1174,6 @@ async def process_payment_help_manager(callback: CallbackQuery):
       show_alert=True,
   )
 
-
 @router.callback_query(F.data == "cryptobot_guide")
 async def process_cryptobot_guide(callback: CallbackQuery):
   chat_id = callback.message.chat.id
@@ -1275,7 +1200,6 @@ async def process_cryptobot_guide(callback: CallbackQuery):
   )
   await callback.message.edit_text(guide_text, reply_markup=keyboard, parse_mode="HTML")
   await callback.answer()
-
 
 @router.callback_query(F.data == "pay_cryptobot")
 async def process_pay_cryptobot(callback: CallbackQuery, state: FSMContext):
@@ -1326,7 +1250,6 @@ async def process_pay_cryptobot(callback: CallbackQuery, state: FSMContext):
   await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
   await callback.answer()
 
-
 @router.callback_query(F.data == "cryptobot_check_success")
 async def process_cryptobot_check(callback: CallbackQuery, state: FSMContext):
   user = callback.from_user
@@ -1368,7 +1291,6 @@ async def process_cryptobot_check(callback: CallbackQuery, state: FSMContext):
   )
   await callback.message.edit_text(final_text, reply_markup=keyboard, parse_mode="HTML")
   await state.clear()
-
 
 @router.callback_query(F.data == "crypto_expert")
 async def process_crypto_expert(callback: CallbackQuery, state: FSMContext):
@@ -1420,7 +1342,6 @@ async def process_crypto_expert(callback: CallbackQuery, state: FSMContext):
   await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
   await callback.answer()
 
-
 @router.callback_query(F.data == "pay_trc20")
 async def process_pay_trc20(callback: CallbackQuery, state: FSMContext):
   data = await state.get_data()
@@ -1463,7 +1384,6 @@ async def process_pay_trc20(callback: CallbackQuery, state: FSMContext):
       payment_text, reply_markup=keyboard, parse_mode="HTML"
   )
   await callback.answer()
-
 
 @router.callback_query(F.data == "pay_bep20")
 async def process_pay_bep20(callback: CallbackQuery, state: FSMContext):
@@ -1508,7 +1428,6 @@ async def process_pay_bep20(callback: CallbackQuery, state: FSMContext):
   )
   await callback.answer()
 
-
 @router.callback_query(F.data == "pay_ton")
 async def process_pay_ton(callback: CallbackQuery, state: FSMContext):
   data = await state.get_data()
@@ -1551,7 +1470,6 @@ async def process_pay_ton(callback: CallbackQuery, state: FSMContext):
       payment_text, reply_markup=keyboard, parse_mode="HTML"
   )
   await callback.answer()
-
 
 @router.callback_query(F.data == "pay_btc")
 async def process_pay_btc(callback: CallbackQuery, state: FSMContext):
@@ -1596,7 +1514,6 @@ async def process_pay_btc(callback: CallbackQuery, state: FSMContext):
   )
   await callback.answer()
 
-
 @router.callback_query(F.data == "ask_for_receipt")
 async def ask_for_receipt(callback: CallbackQuery, state: FSMContext):
   await state.set_state(OrderForm.receipt)
@@ -1607,7 +1524,6 @@ async def ask_for_receipt(callback: CallbackQuery, state: FSMContext):
   )
   await callback.message.edit_text(text, parse_mode="HTML")
   await callback.answer()
-
 
 @router.message(OrderForm.receipt, F.photo)
 async def process_receipt_photo(message: Message, state: FSMContext):
@@ -1673,7 +1589,6 @@ async def process_receipt_photo(message: Message, state: FSMContext):
   await message.answer(final_text, reply_markup=keyboard, parse_mode="HTML")
   await state.clear()
 
-
 @router.message(OrderForm.receipt, ~F.photo)
 async def process_receipt_invalid(message: Message):
   await message.answer(
@@ -1681,11 +1596,9 @@ async def process_receipt_invalid(message: Message):
       " (картинкой), текстовые сообщения в качестве чека не принимаются!"
   )
 
-
 # =====================================================================
 # === АНКЕТА ДЛЯ ТРУДОУСТРОЙСТВА В КОМАНДУ (ВАКАНСИИ) ===================
 # =====================================================================
-
 
 @router.callback_query(F.data == "start_vacancy")
 async def process_start_vacancy(callback: CallbackQuery, state: FSMContext):
@@ -1742,13 +1655,12 @@ async def process_start_vacancy(callback: CallbackQuery, state: FSMContext):
       ]
   )
   await callback.message.edit_text(
-      "💼 <b>АНКЕТА СОИСКАТЕЛЯ</b>\n\n<b>Шаг 1 из 8: Страна проживания</b>\nВыберите"
+      "💼 <b>АНКЕТА СОИСКАТЕЛЯ</b>\n\n<b>Шаг 1 из 5: Страна проживания</b>\nВыберите"
       " вашу страну из списка:",
       reply_markup=keyboard,
       parse_mode="HTML",
   )
   await callback.answer()
-
 
 @router.callback_query(VacancyForm.country, F.data.startswith("vcountry_"))
 async def process_vacancy_country(callback: CallbackQuery, state: FSMContext):
@@ -1775,83 +1687,46 @@ async def process_vacancy_country(callback: CallbackQuery, state: FSMContext):
       curr_code=curr_info["code"],
       curr_symbol=curr_info["symbol"],
   )
-  await state.set_state(VacancyForm.city)
+  await state.set_state(VacancyForm.city_name_age)
   await callback.message.edit_text(
       f"💼 <b>АНКЕТА СОИСКАТЕЛЯ</b>\n\nСтрана: <b>{selected}</b>\n\n<b>Шаг 2 из"
-      " 8: Город проживания</b>\nВведите название вашего города текстом:",
+      " 5: Город, имя и возраст</b>\nВведите ваш город, имя и возраст <b>одним сообщением</b> в свободной форме:\n<i>Пример: Москва, Иван, 25 лет</i>",
       parse_mode="HTML",
   )
   await callback.answer()
 
-
-@router.message(VacancyForm.city, F.text)
-async def process_vacancy_city(message: Message, state: FSMContext):
-  await state.update_data(city=message.text.strip())
-  await state.set_state(VacancyForm.name)
-  await message.answer(
-      "💼 <b>АНКЕТА СОИСКАТЕЛЯ</b>\n\n<b>Шаг 3 из 8: Имя</b>\nВведите ваше"
-      " имя (или псевдоним):",
-      parse_mode="HTML",
-  )
-
-
-@router.message(VacancyForm.name, F.text)
-async def process_vacancy_name(message: Message, state: FSMContext):
-  await state.update_data(name=message.text.strip())
-  await state.set_state(VacancyForm.age)
-  await message.answer(
-      "💼 <b>АНКЕТА СОИСКАТЕЛЯ</b>\n\n<b>Шаг 4 из 8: Возраст</b>\nУкажите сколько"
-      " вам лет:",
-      parse_mode="HTML",
-  )
-
-
-@router.message(VacancyForm.age, F.text)
-async def process_vacancy_age(message: Message, state: FSMContext):
-  await state.update_data(age=message.text.strip())
+@router.message(VacancyForm.city_name_age, F.text)
+async def process_vacancy_city_name_age(message: Message, state: FSMContext):
+  await state.update_data(city_name_age=message.text.strip())
   await state.set_state(VacancyForm.parameters)
   await message.answer(
-      "💼 <b>АНКЕТА СОИСКАТЕЛЯ</b>\n\n<b>Шаг 5 из 8: Параметры телосложения</b>\nУкажите"
+      "💼 <b>АНКЕТА СОИСКАТЕЛЯ</b>\n\n<b>Шаг 3 из 5: Параметры телосложения</b>\nУкажите"
       " ваш рост, вес и телосложение (например: <i>185 см, 95 кг, плотное</i>):",
       parse_mode="HTML",
   )
-
 
 @router.message(VacancyForm.parameters, F.text)
 async def process_vacancy_parameters(message: Message, state: FSMContext):
   await state.update_data(parameters=message.text.strip())
   await state.set_state(VacancyForm.sports_exp)
   await message.answer(
-      "💼 <b>АНКЕТА СОИСКАТЕЛЯ</b>\n\n<b>Шаг 6 из 8: Спортивный опыт</b>\nКакими"
+      "💼 <b>АНКЕТА СОИСКАТЕЛЯ</b>\n\n<b>Шаг 4 из 5: Спортивный опыт</b>\nКакими"
       " видами боевых искусств вы занимались, каков стаж, есть ли разряды (КМС,"
       " Мастер спорта и т.д.)?",
       parse_mode="HTML",
   )
 
-
 @router.message(VacancyForm.sports_exp, F.text)
 async def process_vacancy_sports_exp(message: Message, state: FSMContext):
   await state.update_data(sports_exp=message.text.strip())
-  await state.set_state(VacancyForm.experience)
-  await message.answer(
-      "💼 <b>АНКЕТА СОИСКАТЕЛЯ</b>\n\n<b>Шаг 7 из 8: Опыт работы</b>\nБыл ли у вас"
-      " опыт в подобных делах или сфере услуг? Кратко опишите:",
-      parse_mode="HTML",
-  )
-
-
-@router.message(VacancyForm.experience, F.text)
-async def process_vacancy_experience(message: Message, state: FSMContext):
-  await state.update_data(experience=message.text.strip())
   await state.set_state(VacancyForm.photo)
   await message.answer(
-      "💼 <b>АНКЕТА СОИСКАТЕЛЯ</b>\n\n<b>Шаг 8 из 8: Фотография"
+      "💼 <b>АНКЕТА СОИСКАТЕЛЯ</b>\n\n<b>Шаг 5 из 5: Фотография"
       " телосложения</b>\n📸 Прикрепите фото актуальной физической формы"
       " (сделанное в текущий момент с метаданными). <i>Лицо можете замазать для"
       " безопасности.</i>",
       parse_mode="HTML",
   )
-
 
 @router.message(VacancyForm.photo, F.photo)
 async def process_vacancy_photo(message: Message, state: FSMContext):
@@ -1900,14 +1775,12 @@ async def process_vacancy_photo(message: Message, state: FSMContext):
   )
   await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
 
-
 @router.message(VacancyForm.photo, ~F.photo)
 async def process_vacancy_photo_invalid(message: Message):
   await message.answer(
       "⚠️ Пожалуйста, отправьте именно <b>фотографию</b> (картинкой), текстовые"
       " сообщения не принимаются!"
   )
-
 
 @router.callback_query(F.data == "vacancy_pay")
 async def process_vacancy_pay(callback: CallbackQuery, state: FSMContext):
@@ -1956,7 +1829,6 @@ async def process_vacancy_pay(callback: CallbackQuery, state: FSMContext):
   await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
   await callback.answer()
 
-
 @router.callback_query(F.data == "vpay_cryptobot_guide")
 async def process_vpay_cryptobot_guide(callback: CallbackQuery):
   guide_text = (
@@ -1976,7 +1848,6 @@ async def process_vpay_cryptobot_guide(callback: CallbackQuery):
   )
   await callback.message.edit_text(guide_text, reply_markup=keyboard, parse_mode="HTML")
   await callback.answer()
-
 
 @router.callback_query(F.data == "vpay_cryptobot")
 async def process_vpay_cryptobot(callback: CallbackQuery, state: FSMContext):
@@ -2014,7 +1885,6 @@ async def process_vpay_cryptobot(callback: CallbackQuery, state: FSMContext):
   await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
   await callback.answer()
 
-
 @router.callback_query(F.data == "vacancy_cryptobot_check_success")
 async def process_vacancy_cryptobot_check(callback: CallbackQuery, state: FSMContext):
   user = callback.from_user
@@ -2051,7 +1921,6 @@ async def process_vacancy_cryptobot_check(callback: CallbackQuery, state: FSMCon
   )
   await callback.message.edit_text(final_text, reply_markup=keyboard, parse_mode="HTML")
   await state.clear()
-
 
 @router.callback_query(F.data == "vpay_crypto_expert")
 async def process_vpay_crypto_expert(callback: CallbackQuery, state: FSMContext):
@@ -2093,7 +1962,6 @@ async def process_vpay_crypto_expert(callback: CallbackQuery, state: FSMContext)
   await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
   await callback.answer()
 
-
 @router.callback_query(F.data == "vpay_trc20")
 async def vpay_trc20(callback: CallbackQuery):
   text = (
@@ -2123,7 +1991,6 @@ async def vpay_trc20(callback: CallbackQuery):
   )
   await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
   await callback.answer()
-
 
 @router.callback_query(F.data == "vpay_bep20")
 async def vpay_bep20(callback: CallbackQuery):
@@ -2155,7 +2022,6 @@ async def vpay_bep20(callback: CallbackQuery):
   await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
   await callback.answer()
 
-
 @router.callback_query(F.data == "vpay_ton")
 async def vpay_ton(callback: CallbackQuery):
   text = (
@@ -2185,7 +2051,6 @@ async def vpay_ton(callback: CallbackQuery):
   )
   await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
   await callback.answer()
-
 
 @router.callback_query(F.data == "vpay_btc")
 async def vpay_btc(callback: CallbackQuery):
@@ -2217,7 +2082,6 @@ async def vpay_btc(callback: CallbackQuery):
   await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
   await callback.answer()
 
-
 @router.callback_query(F.data == "vacancy_ask_receipt")
 async def vacancy_ask_receipt(callback: CallbackQuery, state: FSMContext):
   await state.set_state(VacancyForm.receipt)
@@ -2228,7 +2092,6 @@ async def vacancy_ask_receipt(callback: CallbackQuery, state: FSMContext):
   )
   await callback.message.edit_text(text, parse_mode="HTML")
   await callback.answer()
-
 
 @router.message(VacancyForm.receipt, F.photo)
 async def process_vacancy_receipt(message: Message, state: FSMContext):
@@ -2272,7 +2135,6 @@ async def process_vacancy_receipt(message: Message, state: FSMContext):
   await message.answer(final_text, reply_markup=keyboard, parse_mode="HTML")
   await state.clear()
 
-
 @router.message(VacancyForm.receipt, ~F.photo)
 async def process_vacancy_receipt_invalid(message: Message):
   await message.answer(
@@ -2280,11 +2142,9 @@ async def process_vacancy_receipt_invalid(message: Message):
       " (картинкой)!"
   )
 
-
 # === ВЕБ-СЕРВЕР ДЛЯ ЗАЩИТЫ ОТ СНА СЕРВЕРА (RENDER) ===
 async def handle_ping(request):
   return web.Response(text="Bot is running!")
-
 
 async def start_web_server():
   app = web.Application()
@@ -2294,7 +2154,6 @@ async def start_web_server():
   port = int(os.getenv("PORT", 10000))
   site = web.TCPSite(runner, "0.0.0.0", port)
   await site.start()
-
 
 async def main():
   bot = Bot(token=BOT_TOKEN)
@@ -2306,7 +2165,6 @@ async def main():
   )
   await bot.delete_webhook(drop_pending_updates=True)
   await dp.start_polling(bot)
-
 
 if __name__ == "__main__":
   asyncio.run(main())
