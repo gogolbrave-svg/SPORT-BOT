@@ -58,8 +58,23 @@ KNOWN_USERS = {}
 ABANDONED_CHECKOUTS = {}
 CARD_DETAILS = []      # Список реквизитов карт/телефонов
 CARD_POINTERS = {}     # Индексы для циклического чередования реквизитов по странам
+BANNED_USERS = set()   # Множество заблокированных пользователей
 
 router = Router()
+
+# === MIDDLEWARE ДЛЯ ПРОВЕРКИ БАНА ===
+@router.message.middleware()
+async def ban_middleware(handler, event, data):
+  if event.from_user and event.from_user.id in BANNED_USERS:
+    return
+  return await handler(event, data)
+
+@router.callback_query.middleware()
+async def ban_callback_middleware(handler, event, data):
+  if event.from_user and event.from_user.id in BANNED_USERS:
+    await event.answer("Вы заблокированы в этом боте.", show_alert=True)
+    return
+  return await handler(event, data)
 
 # === СЛОВАРЬ ВАЛЮТ ДЛЯ СТРАН ===
 COUNTRY_CURRENCIES = {
@@ -179,7 +194,24 @@ async def show_main_menu(event: Message | CallbackQuery, state: FSMContext, edit
   else:
     await event.answer(text, reply_markup=keyboard, parse_mode="HTML")
 
-# === АДМИНСКИЕ КОМАНДЫ ДЛЯ УПРАВЛЕНИЯ КАРТАМИ ===
+# === АДМИНСКИЕ КОМАНДЫ ДЛЯ УПРАВЛЕНИЯ КАРТАМИ И БАНОМ ===
+@router.message(Command("ban"))
+async def cmd_ban_user(message: Message):
+  if ADMIN_ID and message.from_user.id != ADMIN_ID:
+    return
+  args = message.text.split(maxsplit=1)
+  if len(args) < 2:
+    await message.reply("❌ Использование: `/ban <user_id>`", parse_mode="Markdown")
+    return
+
+  target = args[1].strip()
+  if target.isdigit():
+    user_id = int(target)
+    BANNED_USERS.add(user_id)
+    await message.reply(f"✅ Пользователь с ID <code>{user_id}</code> успешно заблокирован.", parse_mode="HTML")
+  else:
+    await message.reply("❌ Укажите корректный числовой ID пользователя.", parse_mode="Markdown")
+
 @router.message(Command("add"))
 async def cmd_add_card(message: Message):
   if ADMIN_ID and message.from_user.id != ADMIN_ID:
@@ -797,7 +829,6 @@ async def process_pay_card_option(callback: CallbackQuery, state: FSMContext):
   }
   header_title = header_map.get(country, "Оплата по реквизитам")
 
-  # ОБНОВЛЕННЫЙ БЛОК С ОТОБРАЖЕНИЕМ СУММЫ В ДОЛЛАРАХ, КУРСА И ИТОГО К ОПЛАТЕ В МЕСТНОЙ ВАЛЮТЕ
   text = (
       f"💳 <b>{header_title} ({country})</b>\n\n"
       f"• Сумма в долларах: <b>{total_price}$</b>\n"
