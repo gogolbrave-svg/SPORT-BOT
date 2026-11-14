@@ -111,7 +111,6 @@ CRYPTO_NETWORKS = {
 # === ФУНКЦИЯ ЧЕРЕДОВАНИЯ РЕКВИЗИТОВ (ROUND-ROBIN) ПО КРУГУ ===
 def get_next_card(country: str):
   now = datetime.datetime.now()
-  # Фильтруем активные (не замороженные) реквизиты для выбранной страны
   active = []
   for card in CARD_DETAILS:
     if card["country"].lower() == country.lower():
@@ -124,15 +123,11 @@ def get_next_card(country: str):
   if not active:
     return None
 
-  # Инициализируем указатель для страны, если его еще нет
   if country not in CARD_POINTERS:
     CARD_POINTERS[country] = 0
 
-  # Берем реквизит по текущему указателю
   index = CARD_POINTERS[country] % len(active)
   chosen_card = active[index]
-
-  # Сдвигаем указатель на следующий элемент для следующего клиента (по кругу)
   CARD_POINTERS[country] = (index + 1) % len(active)
 
   return chosen_card
@@ -265,7 +260,6 @@ async def cmd_delete_card(message: Message):
     return
     
   global CARD_DETAILS  
-  
   args = message.text.split(maxsplit=1)
   if len(args) < 2:
     await message.reply("❌ Использование: `/delete <реквизиты> <Банк> <Страна>`", parse_mode="Markdown")
@@ -794,7 +788,6 @@ async def process_pay_card_option(callback: CallbackQuery, state: FSMContext):
   rate = await get_exchange_rate(data.get("curr_code", "USD"))
   local_amount = round(total_price * rate)
 
-  # Получаем следующий по очереди реквизит для страны (по кругу)
   card = get_next_card(country)
 
   if not card:
@@ -1168,12 +1161,16 @@ async def main():
   dp = Dispatcher()
   dp.include_router(router)
   
-  await bot.set_my_commands([
-      BotCommand(command="start", description="Главное меню"),
-      BotCommand(command="order", description="Заказать"),
-      BotCommand(command="my_orders", description="В работе"),
-      BotCommand(command="reputation", description="Репутация"),
-  ])
+  # Защита от временных сбоев Telegram API (502 Bad Gateway) при старте
+  try:
+    await bot.set_my_commands([
+        BotCommand(command="start", description="Главное меню"),
+        BotCommand(command="order", description="Заказать"),
+        BotCommand(command="my_orders", description="В работе"),
+        BotCommand(command="reputation", description="Репутация"),
+    ])
+  except Exception as e:
+    logger.warning(f"Не удалось установить команды бота при старте: {e}")
   
   asyncio.create_task(start_web_server())
   asyncio.create_task(scheduled_broadcast(bot))
